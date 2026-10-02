@@ -59,3 +59,28 @@
 - **Stateless Authentication**: An authentication pattern using cryptographically signed tokens (like JWTs) that carry identity and permission data, eliminating server-side session lookups.
 - **Referential Integrity & Cascading**: Database constraints ensuring related child records (e.g. lists and cards) are automatically cleaned up when parent entities (boards) are deleted.
 
+## Task: Design System Specification
+
+### What Was Built
+- Created `docs/09-design-system.md` defining the complete visual design system around a calm, tactile "index card on paper" aesthetic.
+- Specified the color palette based on warm paper ground (`#F4F1EA`), clean index card surface (`#FBFAF6`), ink (`#1B1A17`), muted pencil (`#6B665C`), 1px borders (`rgba(27,26,23,0.14)`), and a vermilion stamp accent (`#E4572E`), with dark mode explicitly marked out of scope.
+- Established typography scales utilizing Bricolage Grotesque (headings), Instrument Sans (body & inputs), and JetBrains Mono (metadata, dates, counters).
+- Enforced geometry and elevation constraints: maximum 3px radii, 1px borders, zero resting shadows, and a single elevation shadow reserved strictly for cards being actively dragged.
+- Defined a 4px base spacing scale with explicit density rules (dense for board canvas and lists, roomy for framing and modals).
+- Documented core components (Button, Input, Card, List Column, Modal, Toast, Avatar Stack, Empty State) across hover, focus-visible, and disabled states.
+- Standardized plain-language voice and microcopy with 10 representative UI strings prohibiting generic fillers.
+- Outlined explicit loading, empty, and error UI states for login, register, dashboard, board view, and card modal.
+
+### Why This Approach
+- **Utilitarian Focus Over Visual Trends**: Grounding the interface in an index-card physical metaphor avoids trendy, distracting gradients, glassmorphism, or heavy drop shadows, keeping user focus squarely on task workflows.
+- **Strict Geometric Constraints (3px Max Radius & 1px Borders)**: Consistent, tight radii and hairline boundaries yield a dense, professional, and crisp desktop tool feel without loose, floating elements.
+- **Deliberate Microcopy**: Banning generic or artificial messages (such as "Oops!" or "Welcome back!") ensures communication remains direct, trustworthy, and actionable when errors or conflicts occur.
+- **Comprehensive UI States**: Defining loading skeletons, empty containers, and retryable error states before writing frontend components guarantees that edge cases and asynchronous delays are never left unhandled.
+
+### Key Terms
+- **Tactile Hierarchy**: A visual design approach that uses subtle border contrasts, paper-like surfaces, and ink tones rather than dramatic drop shadows to communicate component boundaries.
+- **Focus-Visible Ring**: An accessibility styling mechanism that renders high-contrast keyboard navigation rings (`outline: 2px solid #E4572E`) only when users navigate via keyboard, avoiding visual clutter during mouse clicks.
+- **Microcopy**: Short, purposeful text snippets in user interfaces (button labels, empty state guidance, error alerts) designed to guide users clearly without jargon.
+- **Rhythm & Density**: The systematic allocation of whitespace where operational task workspaces are tightly packed (dense) while container frames remain open (roomy).
+
+
