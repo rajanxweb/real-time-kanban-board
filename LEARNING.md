@@ -185,3 +185,28 @@
 - **Database Seeding**: The automated population of a database with initial, predictable sample data for local development, integration testing, and verification.
 - **Midpoint Insertion**: A sorting strategy using fractional indices where a new position is computed as $(P_{\text{prev}} + P_{\text{next}}) / 2$, allowing single-row updates during reordering.
 
+## Task: Express App Structure (Errors, Logging, Health)
+
+### What Was Built
+- Split the server into `app.ts` (builds the Express app) and `index.ts` (starts listening), so tests can import the app without opening a port.
+- Added the layered folders `routes/`, `controllers/`, `services/`, `middleware/`, and `validators/` under `server/src`.
+- Added an `AppError` class for expected HTTP failures (status code plus message).
+- Added an async handler wrapper so rejected promises from route handlers reach Express instead of becoming unhandled rejections.
+- Added a global error handler that sends a JSON error body and omits stack traces when `NODE_ENV` is `production`.
+- Added a pino request logger that records method, URL, status code, and duration after each response finishes.
+- Added `GET /health`, which runs `SELECT 1` through Prisma. A reachable database returns `{ "status": "ok" }`; a failed check becomes a 503 `AppError`.
+
+### Why This Approach
+- **App vs process**: Tests need the request handler, not a listening socket. Creating the app in one file and calling `listen` in another keeps those concerns apart.
+- **Routes → controllers → services**: The health check is small, but putting it through the same layers as future APIs keeps request/response code out of Prisma calls.
+- **Operational errors vs crashes**: `AppError` is for failures we expect (like the database being down). Unknown errors get a generic 500 in production so stack traces and raw driver messages stay off the wire.
+- **Async wrapper**: Express only treats a function as an error middleware if `next(err)` is called. Wrapping async handlers forwards `catch` into `next`.
+- **Pino**: Structured JSON logs are easier to search later than `console.log` strings, and pino is built for that without extra pretty-print tooling.
+
+### Key Terms
+- **AppError**: A custom error that carries an HTTP status code so the global handler can return a known failure instead of a generic 500.
+- **Error middleware**: An Express function with four arguments `(err, req, res, next)`. Express uses the arity to treat it as the error sink for the app.
+- **Async handler**: A wrapper that turns a `Promise` rejection into `next(err)` so the error middleware can format the response.
+- **Health check**: A cheap endpoint used by operators and load balancers to see if the process can still talk to its database.
+- **pino**: A fast JSON logger for Node.js. Here it records one line per finished HTTP request.
+
