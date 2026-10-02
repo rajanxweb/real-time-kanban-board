@@ -105,4 +105,29 @@
 - **tsx**: A fast Node.js runtime enhanced with `esbuild` for executing and watching TypeScript files without upfront compilation.
 - **Flat Config**: The module-based configuration schema in ESLint 9+ (`eslint.config.mjs`) providing explicit, deterministic plugin compositions.
 
+## Task: Client Setup (Vite + React + TypeScript + Tailwind + Fonts)
 
+### What Was Built
+- Scaffolded frontend in `client/` using Vite, React 19, TypeScript in strict mode, and React Router (`react-router-dom`).
+- Translated `docs/09-design-system.md` design tokens into `client/tailwind.config.js`:
+  - Colors: Paper ground (`bg`), index card surface (`surface`), toned surface (`surface-subtle`), primary ink (`ink`), pencil muted (`muted`), hairline rules (`border`, `border-hover`), vermilion stamp accent (`accent`), sage green (`success`), and terracotta (`danger`).
+  - Typography: Bricolage Grotesque (`heading`), Instrument Sans (`body`), and JetBrains Mono (`mono`).
+  - Corner Radii: Strict maximum 3px (`rounded`), 2px for chips (`rounded-sm`), and 9999px for presence avatars (`rounded-full`).
+  - Spacing Scale: Base 4px rhythm (`space-1` through `space-8`).
+  - Elevation: Drag-only box shadow (`boxShadow.drag`), modal shadow (`boxShadow.modal`), and toast shadow (`boxShadow.toast`).
+- Self-hosted all three fonts via `@fontsource` packages (`@fontsource/bricolage-grotesque`, `@fontsource/instrument-sans`, `@fontsource/jetbrains-mono`), completely eliminating external CDN calls.
+- Configured PostCSS (`postcss.config.js`), ESLint (`eslint.config.js` with Prettier and React Hooks plugins), Prettier (`.prettierrc`, `.prettierignore`), and strict TypeScript options in `tsconfig.app.json`.
+- Removed all default Vite template leftovers (Vite/React logos, demo counter, `App.css`, default purple theme, template SVGs and readme) and replaced them with a minimal, tactile SVG favicon and a blank verification shell demonstrating all typefaces, colors, and radii.
+- Configured npm scripts: `dev`, `build`, `lint`, and `typecheck`.
+
+### Why This Approach
+- **Local Font Loading via @fontsource**: Packaging fonts locally avoids external render-blocking network requests, CDN outages, and privacy issues, ensuring fast, deterministic offline-ready builds.
+- **Single Source of Truth Design Tokens**: Mapping `docs/09-design-system.md` directly into the Tailwind configuration guarantees that UI components cannot inadvertently introduce prohibited colors, large corner radii, or arbitrary spacing.
+- **Strict TypeScript & Flat ESLint**: Adding strict compiler flags (`strict: true`, `noImplicitReturns`, `noUnusedLocals`, `noUnusedParameters`) and combining typescript-eslint with Prettier catches type mismatches and unused variables early while enforcing clean code standards.
+- **Verification Shell**: Rendering a blank shell verifying all three font families and tokenized colors in React Router proves the toolchain and styling pipelines function before adding complex application components.
+
+### Key Terms
+- **@fontsource**: An open-source collection of self-hosted Google Fonts packaged as npm modules, bundled directly into application CSS assets.
+- **Tailwind Theme Extension**: The configuration object (`theme.extend`) used to customize Tailwind's utility generation with project-specific color palettes, fonts, spacing, and geometry.
+- **Self-Hosting Fonts**: Serving font files directly from the application's origin bundle rather than making third-party requests to external services like Google Fonts.
+- **Project References (TypeScript)**: A TypeScript feature dividing a project into separate build steps (e.g. `tsconfig.app.json` and `tsconfig.node.json`) for modular, faster incremental type-checking with `tsc -b`.
