@@ -83,4 +83,26 @@
 - **Microcopy**: Short, purposeful text snippets in user interfaces (button labels, empty state guidance, error alerts) designed to guide users clearly without jargon.
 - **Rhythm & Density**: The systematic allocation of whitespace where operational task workspaces are tightly packed (dense) while container frames remain open (roomy).
 
+## Task: Backend Server Setup (Node + Express + TypeScript)
+
+### What Was Built
+- Initialized `server/` with Node.js, Express, TypeScript (strict mode), `tsx` for development, ESLint, and Prettier.
+- Configured `tsconfig.json` with strict type checking (`strict: true`, `noImplicitReturns: true`, `noUnusedLocals: true`, `noUnusedParameters: true`) targeting `ES2022` with `NodeNext` module resolution.
+- Configured ESLint (flat config `eslint.config.mjs`) combining `@eslint/js`, `typescript-eslint`, and `eslint-config-prettier`.
+- Configured Prettier (`.prettierrc`, `.prettierignore`) for standard formatting.
+- Created `server/.env.example` defining default port configuration (`PORT=5000`).
+- Implemented `server/src/index.ts` initializing an Express server on the `PORT` specified in the environment (defaulting to `5000`) without routes.
+- Configured standard npm scripts: `dev`, `build`, `start`, `lint`, and `typecheck`.
+
+### Why This Approach
+- **TypeScript Strict Mode**: Enforcing strict compiler checks and rejecting unused identifiers catches defects at build time and keeps the codebase disciplined as domain layers are introduced.
+- **Fast Development Cycles with `tsx`**: `tsx` provides native TypeScript execution and automatic reloading on file modification without needing multi-step transpile-and-run scripts.
+- **Separation of Linting and Formatting**: Pairing `typescript-eslint` with `eslint-config-prettier` turns off stylistic rules in ESLint, letting Prettier handle formatting and ESLint focus strictly on code quality.
+- **Clean Baseline**: Setting up the server process and port listener without speculative routes or premature abstractions aligns with `RULES.md` and provides a clean canvas for subsequent API and socket layers.
+
+### Key Terms
+- **Strict Mode (TypeScript)**: A configuration flag (`strict: true`) that enables all strict type checking options, eliminating implicit `any` types and ensuring explicit handling of `null` and `undefined`.
+- **tsx**: A fast Node.js runtime enhanced with `esbuild` for executing and watching TypeScript files without upfront compilation.
+- **Flat Config**: The module-based configuration schema in ESLint 9+ (`eslint.config.mjs`) providing explicit, deterministic plugin compositions.
+
 
