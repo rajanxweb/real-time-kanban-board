@@ -152,3 +152,36 @@
 - **Zod Schema Validation**: A TypeScript-first schema declaration and validation library that parses untyped data into strictly typed runtime values.
 - **Named Volume**: A persistent Docker storage mechanism managed by the Docker engine that preserves database data across container restarts and recreations.
 - **Container Healthcheck**: A command executed periodically by Docker inside a running container to verify that the service is ready to accept client connections.
+
+## Task: Database Setup (Prisma ORM with PostgreSQL)
+
+### What Was Built
+- Configured Prisma ORM in `server/` connecting to PostgreSQL via `DATABASE_URL`.
+- Implemented the normalized schema in `server/prisma/schema.prisma` matching `docs/04-database-design.md`:
+  - `User`: Accounts with authentication credentials (`email`, `passwordHash`, `name`) and timestamps.
+  - `Board`: Collaborative workspace entities with titles, descriptions, and timestamps.
+  - `BoardMember`: Join table with `Role` enum (`OWNER`, `MEMBER`) managing board access and permissions, with a compound unique constraint on `[boardId, userId]`.
+  - `List`: Columns belonging to boards with floating-point `position` values for fractional ordering and a composite index on `[boardId, position]`.
+  - `Card`: Task cards belonging to lists with optional assignees (`User`), nullable markdown descriptions, due dates, floating-point `position` values, and composite index on `[listId, position]`.
+- Implemented explicit cascading deletes:
+  - Deleting a `Board` cascades down to remove all its `BoardMember` entries, `List` records, and downstream `Card` records.
+  - Deleting a `List` cascades down to delete its `Card` records.
+  - Deleting a `User` cascades down to delete their `BoardMember` memberships and safely sets `assigneeId` to `NULL` on assigned cards (`SetNull`).
+- Created and executed the initial migration (`server/prisma/migrations/20261002080950_init/migration.sql`) to provision the tables, enum types, unique constraints, and foreign key indexes in PostgreSQL.
+- Implemented a Prisma client singleton (`server/src/lib/prisma.ts` and `server/src/prisma.ts`) utilizing the global object in development to prevent connection exhaustion during hot reloading.
+- Authored a deterministic seed script (`server/prisma/seed.ts`) that resets existing records and seeds 2 users (Alice Smith, Bob Jones), 1 board ('Product Roadmap'), 3 lists ('To Do', 'In Progress', 'Done'), and 6 cards with assigned users and initial fractional positions (`1000.0`, `2000.0`).
+- Added npm scripts to `server/package.json` for database migration and seeding (`migrate`, `seed`, `db:migrate`, `db:seed`).
+
+### Why This Approach
+- **Floating-Point Positions for $O(1)$ Reordering**: Using double-precision floats for list and card positions allows moving items between any two adjacent elements by calculating the midpoint, avoiding expensive multi-row $O(N)$ database updates.
+- **Relational Integrity via Cascades**: Configuring cascade deletes in the database engine ensures no orphaned cards, lists, or memberships remain when parents are deleted, without requiring complex transactional cleanup code in application controllers.
+- **Prisma Client Singleton**: In development environments where tools like `tsx` reload server code upon file changes, instantiating new `PrismaClient` instances per reload quickly exceeds PostgreSQL connection pool limits; storing the instance on `globalThis` reuses active connections.
+- **Foreign Key Indexing**: Explicit indexes on foreign key columns (`userId`, `boardId`, `listId`, `assigneeId`) speed up relational joins and cascade delete traversals in PostgreSQL.
+
+### Key Terms
+- **Prisma ORM**: A next-generation Node.js and TypeScript object-relational mapper providing type-safe database queries generated directly from a declarative schema.
+- **Singleton Pattern**: A software design pattern that restricts the instantiation of a class to a single shared instance throughout the lifetime of the application process.
+- **Cascade Delete**: A database constraint rule where deleting a parent row automatically triggers the deletion of all associated dependent child rows.
+- **Database Seeding**: The automated population of a database with initial, predictable sample data for local development, integration testing, and verification.
+- **Midpoint Insertion**: A sorting strategy using fractional indices where a new position is computed as $(P_{\text{prev}} + P_{\text{next}}) / 2$, allowing single-row updates during reordering.
+
