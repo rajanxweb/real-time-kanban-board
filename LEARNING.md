@@ -1,5 +1,24 @@
 # Learning notes
 
+## Task: Authentication Endpoints
+
+### What Was Built
+- Implemented registration, login, and current-user endpoints under `/api/v1/auth`.
+- Validated registration and login bodies with Zod, including normalized email addresses and an eight-character minimum registration password.
+- Hashed passwords with bcrypt and issued JWT access tokens that expire after one hour.
+- Added bearer-token middleware that verifies the token, loads the current user, and attaches only public user fields to the request.
+- Kept login failures for an unknown email and an incorrect password on the same `401 INVALID_CREDENTIALS` response: `Invalid email or password`.
+
+### Why This Approach
+- The routes, controllers, services, and Prisma access remain separate, so HTTP handling is distinct from authentication logic and persistence.
+- Password hashes are used only for verification and are excluded from all response objects.
+- Zod rejects invalid input before service logic runs, and the same login error avoids revealing whether an email is registered.
+
+### Key Terms
+- **JWT access token**: A signed token sent as a bearer credential and accepted until its one-hour expiration.
+- **Password hash**: A one-way bcrypt result stored in the database instead of the original password.
+- **Bearer authentication**: Sending a credential in the `Authorization: Bearer <token>` request header.
+
 ## Task: Initial Repository Skeleton
 
 ### What Was Built
@@ -232,4 +251,3 @@
 - **JWT (JSON Web Token)**: A signed string that carries claims (here `userId` and `email`). The server checks the signature with `JWT_SECRET` and does not need to look up a session table for that check.
 - **Bearer token**: The HTTP convention `Authorization: Bearer <token>` for sending a JWT on each request.
 - **Salt rounds**: How much work bcrypt does per hash (10 here). Higher numbers are slower for both attackers and the server.
-
