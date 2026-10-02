@@ -19,6 +19,18 @@ export function errorHandler(
   const production = isProduction();
 
   if (err instanceof AppError) {
+    if (err.code) {
+      res.status(err.statusCode).json({
+        success: false,
+        error: {
+          code: err.code,
+          message: err.message,
+          ...(err.details ? { details: err.details } : {}),
+        },
+      });
+      return;
+    }
+
     res.status(err.statusCode).json({
       message: err.message,
       ...(production ? {} : { stack: err.stack }),

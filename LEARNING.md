@@ -210,3 +210,26 @@
 - **Health check**: A cheap endpoint used by operators and load balancers to see if the process can still talk to its database.
 - **pino**: A fast JSON logger for Node.js. Here it records one line per finished HTTP request.
 
+## Task: Authentication API (Register, Login, Current User)
+
+### What Was Built
+- Added `POST /api/v1/auth/register`, `POST /api/v1/auth/login`, and `GET /api/v1/auth/me` using the existing routes → controllers → services layout.
+- Validated request bodies with Zod before they reach the service: register requires a trimmed lowercase email, a password of at least 8 characters, and a name of 1–100 characters. Extra fields are stripped.
+- Hashed passwords with bcrypt (10 salt rounds) and stored only `passwordHash` in PostgreSQL. API responses never include the hash.
+- Issued a JWT access token signed with `JWT_SECRET`, with a 1-hour expiry and `userId` plus `email` in the payload.
+- Added auth middleware that reads `Authorization: Bearer <token>`, verifies the JWT, loads the user, and attaches that user to `req.user`.
+- Login failures for an unknown email and a wrong password both return the same `401 INVALID_CREDENTIALS` message: "Invalid email or password". Duplicate registration returns `409 EMAIL_ALREADY_EXISTS`.
+
+### Why This Approach
+- **Same error for both login failures**: Telling an attacker whether the email exists makes account guessing easier. One generic message hides that distinction.
+- **Hash, never store plaintext**: bcrypt with a per-password salt means a leaked database is not immediately usable as a password list.
+- **Short-lived JWT**: A 1-hour access token is enough for a session without keeping server-side session records, which matches the free-tier, stateless design.
+- **Middleware attaches the user**: Protected routes can read `req.user` instead of repeating token parsing. `/me` still loads the user from the database so a deleted account cannot keep using an old token.
+- **Zod at the route edge**: Invalid bodies fail with `VALIDATION_ERROR` before any hashing or database write.
+
+### Key Terms
+- **bcrypt**: A password hashing algorithm that includes a salt and is deliberately slow, so guessing passwords from a stolen hash file is expensive.
+- **JWT (JSON Web Token)**: A signed string that carries claims (here `userId` and `email`). The server checks the signature with `JWT_SECRET` and does not need to look up a session table for that check.
+- **Bearer token**: The HTTP convention `Authorization: Bearer <token>` for sending a JWT on each request.
+- **Salt rounds**: How much work bcrypt does per hash (10 here). Higher numbers are slower for both attackers and the server.
+
