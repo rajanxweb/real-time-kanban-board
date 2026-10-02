@@ -131,3 +131,24 @@
 - **Tailwind Theme Extension**: The configuration object (`theme.extend`) used to customize Tailwind's utility generation with project-specific color palettes, fonts, spacing, and geometry.
 - **Self-Hosting Fonts**: Serving font files directly from the application's origin bundle rather than making third-party requests to external services like Google Fonts.
 - **Project References (TypeScript)**: A TypeScript feature dividing a project into separate build steps (e.g. `tsconfig.app.json` and `tsconfig.node.json`) for modular, faster incremental type-checking with `tsc -b`.
+
+## Task: Infrastructure and Environment Configuration (Docker Compose & Zod Env Validation)
+
+### What Was Built
+- Created root `docker-compose.yml` declaring an isolated PostgreSQL service (`postgres:16-alpine`), named data volume (`postgres_data`), container healthcheck via `pg_isready`, and variable-driven credentials.
+- Created root `.env.example` documenting PostgreSQL service credentials (`POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`) and backend server configurations (`PORT`, `DATABASE_URL`, `JWT_SECRET`, `CLIENT_ORIGIN`).
+- Updated `server/.env.example` to mirror server-specific environment requirements.
+- Implemented `server/src/config/env.ts` using `zod` to validate all required environment variables (`PORT`, `DATABASE_URL`, `JWT_SECRET`, `CLIENT_ORIGIN`) at startup, immediately printing formatted issue descriptions and exiting (`process.exit(1)`) if configuration is invalid or missing.
+- Updated `server/src/index.ts` to import validated `env` and start listening on `env.PORT`.
+
+### Why This Approach
+- **Fail-Fast Architecture**: Validating configuration at startup with Zod ensures that missing database connection strings or cryptographic keys halt execution immediately with clear diagnostic feedback, rather than throwing runtime exceptions during request handling.
+- **Strict Typing for Configuration**: Exporting an inferred Zod type (`z.infer<typeof envSchema>`) provides type safety and autocomplete throughout the application without type casting `process.env`.
+- **Reproducible Local Development**: Providing a minimal, dedicated `docker-compose.yml` for PostgreSQL ensures every developer and testing environment shares the exact same database engine version and port mappings without installing PostgreSQL directly on the host machine.
+- **Secure Default Practices**: Keeping `.env.example` committed while keeping actual `.env` files ignored prevents accidental exposure of credentials in Git history.
+
+### Key Terms
+- **Fail-Fast**: A system design principle where software immediately stops execution upon encountering an unrecoverable error or invalid prerequisite, preventing corrupted states or confusing downstream bugs.
+- **Zod Schema Validation**: A TypeScript-first schema declaration and validation library that parses untyped data into strictly typed runtime values.
+- **Named Volume**: A persistent Docker storage mechanism managed by the Docker engine that preserves database data across container restarts and recreations.
+- **Container Healthcheck**: A command executed periodically by Docker inside a running container to verify that the service is ready to accept client connections.
