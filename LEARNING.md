@@ -1,5 +1,23 @@
 # Learning notes
 
+## Task: Boards and Board Members API
+
+### What Was Built
+- Added authenticated endpoints to create and list a user's boards, get a board with its members, lists, and cards, update board details, and delete a board.
+- Board creation adds the creator as an owner in the same database operation. Board and list/card results use the documented response envelopes, with lists and cards ordered by position.
+- Added board member endpoints to list members, invite a registered user by normalized email, and remove a member.
+- Added reusable membership and owner checks for board routes, plus Zod validation for request bodies and path parameters.
+
+### Why This Approach
+- Routes apply authentication and the right board permission check before controllers call services.
+- Services keep authorization lookups and board/member database operations out of the HTTP layer.
+- Prisma relations handle cascading board deletion, and the unique membership constraint prevents duplicate invitations even when requests race.
+
+### Key Terms
+- **Board membership**: A record linking a user to a board with either the `OWNER` or `MEMBER` role.
+- **Authorization middleware**: A request check that confirms a signed-in user has the required board role before the route runs.
+- **Ordered position**: The numeric value used to return lists and cards in their board order.
+
 ## Task: Authentication Endpoints
 
 ### What Was Built
