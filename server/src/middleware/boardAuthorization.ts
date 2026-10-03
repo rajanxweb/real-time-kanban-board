@@ -3,6 +3,8 @@ import { AppError } from '../lib/AppError.js';
 import { readPathParam } from '../lib/requestParams.js';
 import {
   boardExists,
+  getCardBoardId,
+  getListBoardId,
   isBoardMember,
   isBoardOwner,
 } from '../services/boardAccessService.js';
@@ -74,3 +76,52 @@ export const requireBoardMember = boardAccessGuard(false);
 export function requireBoardOwner(message: string): RequestHandler {
   return boardAccessGuard(true, message);
 }
+
+function resourceBoardAccessGuard(resource: 'list' | 'card'): RequestHandler {
+  return (req, _res, next) => {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      next(
+        new AppError('Missing or invalid authentication token', 401, 'UNAUTHORIZED'),
+      );
+      return;
+    }
+
+    let resourceId: string;
+    let boardId: string;
+
+    try {
+      resourceId = readPathParam(
+        resource === 'list' ? req.params.listId : req.params.cardId,
+        resource === 'list' ? 'listId' : 'cardId',
+      );
+      boardId = readPathParam(req.params.boardId, 'boardId');
+    } catch (err) {
+      next(err);
+      return;
+    }
+
+    const getResourceBoardId =
+      resource === 'list' ? getListBoardId : getCardBoardId;
+
+    void getResourceBoardId(resourceId).then(
+      async (resourceBoardId) => {
+        if (!resourceBoardId || resourceBoardId !== boardId) {
+          throw new AppError(
+            `${resource === 'list' ? 'List' : 'Card'} not found`,
+            404,
+            `${resource.toUpperCase()}_NOT_FOUND`,
+          );
+        }
+
+        await verifyBoardAccess(resourceBoardId, userId, false);
+        next();
+      },
+      (err: unknown) => next(err),
+    ).catch((err: unknown) => next(err));
+  };
+}
+
+export const requireListBoardMember = resourceBoardAccessGuard('list');
+export const requireCardBoardMember = resourceBoardAccessGuard('card');

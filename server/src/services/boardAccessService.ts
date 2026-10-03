@@ -33,3 +33,21 @@ export async function boardExists(boardId: string): Promise<boolean> {
 
   return board !== null;
 }
+
+export async function getListBoardId(listId: string): Promise<string | null> {
+  const list = await prisma.list.findUnique({
+    where: { id: listId },
+    select: { boardId: true },
+  });
+
+  return list?.boardId ?? null;
+}
+
+export async function getCardBoardId(cardId: string): Promise<string | null> {
+  const card = await prisma.card.findUnique({
+    where: { id: cardId },
+    select: { list: { select: { boardId: true } } },
+  });
+
+  return card?.list.boardId ?? null;
+}

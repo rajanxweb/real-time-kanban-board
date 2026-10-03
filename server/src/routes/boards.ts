@@ -1,6 +1,15 @@
 import { Router } from 'express';
 import { add, list, remove } from '../controllers/boardMembersController.js';
 import {
+  createCardRoute,
+  createListRoute,
+  deleteCardRoute,
+  deleteListRoute,
+  moveCardRoute,
+  updateCardRoute,
+  updateListRoute,
+} from '../controllers/listCardsController.js';
+import {
   create,
   getOne,
   listMine,
@@ -9,8 +18,10 @@ import {
 } from '../controllers/boardsController.js';
 import { requireAuth } from '../middleware/auth.js';
 import {
+  requireCardBoardMember,
   requireBoardMember,
   requireBoardOwner,
+  requireListBoardMember,
 } from '../middleware/boardAuthorization.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { validateBody } from '../middleware/validateBody.js';
@@ -19,6 +30,13 @@ import {
   createBoardBodySchema,
   updateBoardBodySchema,
 } from '../validators/boards.js';
+import {
+  createCardBodySchema,
+  createListBodySchema,
+  moveCardBodySchema,
+  updateCardBodySchema,
+  updateListBodySchema,
+} from '../validators/listCards.js';
 
 export const boardsRouter = Router();
 
@@ -48,6 +66,54 @@ boardsRouter.delete(
   requireAuth,
   requireBoardOwner('You do not have permission to remove this member'),
   asyncHandler(remove),
+);
+
+boardsRouter.post(
+  '/:boardId/lists',
+  requireAuth,
+  requireBoardMember,
+  validateBody(createListBodySchema),
+  asyncHandler(createListRoute),
+);
+boardsRouter.patch(
+  '/:boardId/lists/:listId',
+  requireAuth,
+  requireListBoardMember,
+  validateBody(updateListBodySchema),
+  asyncHandler(updateListRoute),
+);
+boardsRouter.delete(
+  '/:boardId/lists/:listId',
+  requireAuth,
+  requireListBoardMember,
+  asyncHandler(deleteListRoute),
+);
+boardsRouter.post(
+  '/:boardId/lists/:listId/cards',
+  requireAuth,
+  requireListBoardMember,
+  validateBody(createCardBodySchema),
+  asyncHandler(createCardRoute),
+);
+boardsRouter.patch(
+  '/:boardId/cards/:cardId/move',
+  requireAuth,
+  requireCardBoardMember,
+  validateBody(moveCardBodySchema),
+  asyncHandler(moveCardRoute),
+);
+boardsRouter.patch(
+  '/:boardId/cards/:cardId',
+  requireAuth,
+  requireCardBoardMember,
+  validateBody(updateCardBodySchema),
+  asyncHandler(updateCardRoute),
+);
+boardsRouter.delete(
+  '/:boardId/cards/:cardId',
+  requireAuth,
+  requireCardBoardMember,
+  asyncHandler(deleteCardRoute),
 );
 
 boardsRouter.get(

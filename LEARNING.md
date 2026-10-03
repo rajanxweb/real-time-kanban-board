@@ -269,3 +269,22 @@
 - **JWT (JSON Web Token)**: A signed string that carries claims (here `userId` and `email`). The server checks the signature with `JWT_SECRET` and does not need to look up a session table for that check.
 - **Bearer token**: The HTTP convention `Authorization: Bearer <token>` for sending a JWT on each request.
 - **Salt rounds**: How much work bcrypt does per hash (10 here). Higher numbers are slower for both attackers and the server.
+
+## Task: Lists and Cards API
+
+### What Was Built
+- Added the documented list endpoints to create, rename, reorder, and delete lists, including cascading deletion of a list's cards.
+- Added card endpoints to create, edit, delete, and move cards between lists on the same board.
+- Added Zod request validation for list/card fields, optional positions, ISO date strings, nullable edits, and destination-list IDs.
+- Added board membership checks that resolve the board from the list or card being changed. Card moves also confirm that the destination list belongs to the card's board; assignees must be active board members.
+- Chose insertion positions between neighbouring items and rebalance a list's or list-card positions in a transaction when a safe gap is no longer available.
+
+### Why This Approach
+- Resource-based authorization prevents a caller from gaining access by supplying a board ID they belong to while targeting a list or card on another board.
+- Keeping validation, authorization, HTTP responses, and database operations in the existing route → controller → service layers makes the behavior consistent with the rest of the server.
+- Midpoint positions avoid rewriting every sibling on an ordinary reorder. Rebalancing only when the gap is too small restores usable spacing while keeping that update atomic.
+
+### Key Terms
+- **Resource-based authorization**: Checking access against the board that actually owns a list or card, rather than trusting a board identifier supplied by the caller.
+- **Midpoint position**: A sortable number halfway between two neighbouring items, allowing insertion without changing their stored positions.
+- **Rebalancing**: Reassigning evenly spaced positions when neighbouring numbers no longer have a safely usable midpoint.
