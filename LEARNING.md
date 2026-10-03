@@ -325,3 +325,20 @@
 - **JWT (JSON Web Token)**: A signed token saved after login or registration and sent in the `Authorization` header on protected requests.
 - **Protected route**: A route that checks for a verified user before rendering its page.
 - **TanStack Query**: The client-side cache and request state used here to load the current user and expose loading, error, and retry behavior.
+
+## Task: Boards Dashboard
+
+### What Was Built
+- Replaced the placeholder boards page with a dense, row-based dashboard that loads the signed-in user's boards and shows a loading skeleton, retryable error state, or empty state as appropriate.
+- Added an inline board creation form with optional description, plus confirmation before owners delete a board. The server remains the authority for owner-only deletion.
+- Added the workspace top bar with the user's name and a logout action that clears the saved session and cached user data.
+
+### Why This Approach
+- Using the existing board API and query cache keeps dashboard data aligned with the server and refreshes the list after create or delete without adding a new backend contract.
+- A compact list keeps board names, descriptions, ownership, and update dates easy to scan without large repeated cards.
+- Keeping deletion confirmation in the browser avoids adding dependencies while making the destructive action explicit; role-based rendering improves the interface, and server authorization enforces the actual permission.
+
+### Key Terms
+- **Query invalidation**: Marking cached board data stale so it is fetched again after a successful change.
+- **Owner-only action**: A destructive control shown only to board owners in the client and enforced by authorization on the server.
+- **Loading skeleton**: A placeholder layout shown while board data is being fetched.

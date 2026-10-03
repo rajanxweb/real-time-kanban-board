@@ -8,6 +8,7 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   apiRequest,
+  clearAuthToken,
   readAuthToken,
   writeAuthToken,
   type User,
@@ -80,11 +81,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         );
         establishSession(response);
       },
+      logout: () => {
+        clearAuthToken();
+        queryClient.clear();
+        setToken(null);
+      },
       retrySession: async () => {
         await currentUserQuery.refetch();
       },
     }),
-    [currentUserQuery, establishSession, token],
+    [currentUserQuery, establishSession, queryClient, token],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

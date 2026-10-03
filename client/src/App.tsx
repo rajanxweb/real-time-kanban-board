@@ -1,6 +1,7 @@
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { useAuth } from './auth/useAuth';
 import { AuthPages } from './pages/AuthPages';
+import { BoardsDashboard } from './pages/BoardsDashboard';
 
 function SessionLoading() {
   return (
@@ -61,24 +62,7 @@ function ProtectedRoute() {
 }
 
 function BoardsRoute() {
-  const { user } = useAuth();
-
-  return (
-    <main className="min-h-screen bg-bg px-6 py-8 text-ink">
-      <header className="mx-auto flex max-w-5xl items-center justify-between border-b border-border pb-3">
-        <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted">
-          Kanban / boards
-        </p>
-        <p className="text-[13px] text-muted">{user?.name}</p>
-      </header>
-      <section className="mx-auto max-w-5xl py-8">
-        <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-accent">
-          Workspace / account verified
-        </p>
-        <h1 className="mt-2 font-heading text-2xl font-semibold tracking-tight">Your boards</h1>
-      </section>
-    </main>
-  );
+  return <BoardsDashboard />;
 }
 
 export default function App() {
