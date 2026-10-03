@@ -288,3 +288,23 @@
 - **Resource-based authorization**: Checking access against the board that actually owns a list or card, rather than trusting a board identifier supplied by the caller.
 - **Midpoint position**: A sortable number halfway between two neighbouring items, allowing insertion without changing their stored positions.
 - **Rebalancing**: Reassigning evenly spaced positions when neighbouring numbers no longer have a safely usable midpoint.
+
+## Task: Server API Integration Tests
+
+### What Was Built
+- Added Vitest and Supertest to exercise the Express API against PostgreSQL.
+- Added integration coverage for registration and login success/failure, `/auth/me` without a token, non-member board access, owner-only board deletion, and card moves preserving order.
+- Added `.env.test` configuration through `TEST_DATABASE_URL`; the test setup rejects using the same database name as `DATABASE_URL` and applies Prisma migrations to the test database before running.
+- Added `npm test` and included test files in the TypeScript typecheck.
+- Generate Prisma Client after server dependencies install so clean installs have the schema-specific database types required by build and tests.
+
+### Why This Approach
+- Supertest sends real HTTP requests through the Express app without needing a separate server process, while Prisma uses a dedicated PostgreSQL test database for persistence behavior.
+- The test setup makes the database selection explicit and applies the schema before tests, so the same command is repeatable without risking application data.
+- Prisma Client is generated from the schema, not shipped as ready-to-use model types; running generation during installation keeps fresh checkouts type-safe before verification.
+- Small request helpers keep the scenarios readable while leaving each test's important setup, request, and assertions visible.
+
+### Key Terms
+- **Integration test**: A test that checks connected parts of the application together, such as routing, validation, authentication, and database access.
+- **Supertest**: A library for making HTTP requests against an Express application in tests.
+- **Test database**: A separate database selected by `TEST_DATABASE_URL`, isolated from the application's configured database.
