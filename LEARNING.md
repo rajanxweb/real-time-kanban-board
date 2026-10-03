@@ -308,3 +308,20 @@
 - **Integration test**: A test that checks connected parts of the application together, such as routing, validation, authentication, and database access.
 - **Supertest**: A library for making HTTP requests against an Express application in tests.
 - **Test database**: A separate database selected by `TEST_DATABASE_URL`, isolated from the application's configured database.
+
+## Task: Client Authentication
+
+### What Was Built
+- Added public login and registration pages plus a protected `/boards` route. Both auth screens use the paper and index-card visual language, labelled inputs, field-level validation, loading buttons, and specific error messages.
+- Added Zod schemas wired through React Hook Form, an API fetch client that reads and attaches the stored JWT, a session context that loads the current user, and a TanStack Query client.
+- Added a development API proxy so browser requests to `/api/v1` reach the local server without adding cross-origin setup.
+
+### Why This Approach
+- The auth forms follow the server's documented request and response shapes, while the session query verifies saved tokens before allowing access to protected routes.
+- Keeping public credential requests separate from authenticated requests lets invalid login credentials remain on the login form; an unauthorized protected request clears the token and returns the browser to login.
+- The pages use the documented paper colors, fonts, narrow borders, direct copy, and visible keyboard focus rather than a generic gradient-and-card layout.
+
+### Key Terms
+- **JWT (JSON Web Token)**: A signed token saved after login or registration and sent in the `Authorization` header on protected requests.
+- **Protected route**: A route that checks for a verified user before rendering its page.
+- **TanStack Query**: The client-side cache and request state used here to load the current user and expose loading, error, and retry behavior.
