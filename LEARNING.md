@@ -342,3 +342,20 @@
 - **Query invalidation**: Marking cached board data stale so it is fetched again after a successful change.
 - **Owner-only action**: A destructive control shown only to board owners in the client and enforced by authorization on the server.
 - **Loading skeleton**: A placeholder layout shown while board data is being fetched.
+
+## Task: Read-Only Board Page
+
+### What Was Built
+- Added a board page that fetches one board through TanStack Query and renders its lists as horizontally scrollable columns with sticky headers, card totals, and read-only cards.
+- Added loading skeletons, an empty-board state, and separate not-found, forbidden, and retryable loading-error states.
+- Linked dashboard board names to their board page.
+
+### Why This Approach
+- The page uses the existing board detail API and its authorization responses, so the server remains responsible for deciding whether a user can view a board.
+- TanStack Query handles the request state and cache key per board, while the layout keeps each list header and card count visible as its cards scroll.
+- The first version stays read-only; it introduces no editing or drag-and-drop behavior.
+
+### Key Terms
+- **Board detail query**: A cached request keyed by board ID that retrieves one board's lists and cards.
+- **Sticky list header**: A list title and count that remain visible while the cards within that column scroll.
+- **Forbidden response**: An HTTP 403 response indicating that the signed-in user cannot access the requested board.

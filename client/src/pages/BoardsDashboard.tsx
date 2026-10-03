@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { ApiError, apiRequest } from '../api/client';
 import { useAuth } from '../auth/useAuth';
 
@@ -205,7 +206,15 @@ export function BoardsDashboard() {
                 <article className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center" key={board.id}>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                      <h3 className="truncate font-heading text-base font-semibold">{board.title}</h3>
+                      <h3 className="truncate font-heading text-base font-semibold">
+                        <Link
+                          aria-label={`Open board: ${board.title}`}
+                          className="hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
+                          to={`/boards/${encodeURIComponent(board.id)}`}
+                        >
+                          {board.title}
+                        </Link>
+                      </h3>
                       <span className="border border-border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-muted">
                         {board.role === 'OWNER' ? 'Owner' : 'Member'}
                       </span>

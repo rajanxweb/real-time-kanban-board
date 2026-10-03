@@ -1,6 +1,7 @@
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { useAuth } from './auth/useAuth';
 import { AuthPages } from './pages/AuthPages';
+import { BoardPage } from './pages/BoardPage';
 import { BoardsDashboard } from './pages/BoardsDashboard';
 
 function SessionLoading() {
@@ -74,6 +75,7 @@ export default function App() {
       </Route>
       <Route element={<ProtectedRoute />}>
         <Route element={<BoardsRoute />} path="/boards" />
+        <Route element={<BoardPage />} path="/boards/:boardId" />
       </Route>
       <Route element={<Navigate replace to="/login" />} path="*" />
     </Routes>
