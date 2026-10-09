@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom';
 import { DndContext, KeyboardSensor, PointerSensor, closestCorners, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, arrayMove, horizontalListSortingStrategy, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { SocketProvider } from '../socket/SocketProvider';
 import { ApiError, apiRequest } from '../api/client';
 
 type BoardCard = { id: string; title: string; description: string | null; position?: number };
@@ -148,7 +149,7 @@ export function BoardPage() {
     runMutation((current) => ({ ...current, lists: current.lists.map((list) => list.id === source.id ? { ...list, cards: source.id === target.id ? nextCards : sourceCards } : list.id === target.id ? { ...list, cards: nextCards } : list) }), () => apiRequest(`/boards/${encodeURIComponent(boardId)}/cards/${encodeURIComponent(card.id)}/move`, { method: 'PATCH', body: JSON.stringify({ targetListId: target.id, position }) }));
   }
 
-  return <main className="min-h-screen bg-bg px-5 py-5 text-ink sm:px-6 sm:py-6">
+  return <SocketProvider boardId={boardId} enabled={boardQuery.isSuccess}><main className="min-h-screen bg-bg px-5 py-5 text-ink sm:px-6 sm:py-6">
     <header className="mx-auto flex max-w-6xl items-center justify-between border-b border-border pb-3"><p className="font-heading text-sm font-semibold tracking-tight">KANBAN / WORKSPACE</p><Link className={`text-[13px] text-muted hover:text-ink ${focusClass}`} to="/boards">Board list</Link></header>
     <div className="mx-auto max-w-6xl">
       {boardQuery.isPending && <BoardLoading />}
@@ -181,7 +182,7 @@ export function BoardPage() {
     </div>
     {selectedCard && boardId && <CardEditor boardId={boardId} card={selectedCard} onClose={() => setSelectedCard(null)} onFailure={announceFailure} onUpdate={(card) => { setSelectedCard(card); queryClient.setQueryData<Board>(key, (board) => board ? { ...board, lists: board.lists.map((list) => ({ ...list, cards: list.cards.map((item) => item.id === card.id ? card : item) })) } : board); }} onQueryClient={queryClient} />}
     <div aria-live="polite" className="fixed bottom-6 right-6 z-50 space-y-2">{toasts.map((toast) => <p className="border border-surface/20 bg-ink px-3.5 py-2.5 text-[13px] text-surface" key={toast.id} role="status">{toast.message}</p>)}</div>
-  </main>;
+  </main></SocketProvider>;
 }
 
 function CardEditor({ boardId, card, onClose, onFailure, onUpdate, onQueryClient }: { boardId: string; card: BoardCard; onClose: () => void; onFailure: (message: string) => void; onUpdate: (card: BoardCard) => void; onQueryClient: ReturnType<typeof useQueryClient> }) {

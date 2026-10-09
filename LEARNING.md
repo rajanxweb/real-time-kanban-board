@@ -1,5 +1,27 @@
 # Learning notes
 
+## Task: Client Board Socket Updates
+
+### What Was Built
+- Added a board-scoped Socket.IO provider that connects with the saved JWT, joins after board data loads, and leaves and disconnects when the board page unmounts.
+- Added handlers for all documented list and card events. Each handler updates only that board's TanStack Query cache; none triggers a full board refetch.
+- Made event updates idempotent with existing optimistic changes by upserting created records, replacing matching temporary rows, and applying moves/deletes by record ID.
+- Added the Vite WebSocket proxy so the client can connect to the local server during development.
+
+### Why This Approach
+- Joining after the board query has data ensures events have a cached board to update.
+- Reusing the existing cache keeps collaborators' changes in the same state that the board page renders.
+- ID-based updates and reconciliation with optimistic rows prevent the originating window from showing duplicate records when it receives its own room broadcast.
+
+### Key Terms
+- **Socket provider**: A component that owns a board's live connection and event listeners for the time that board is open.
+- **Cache delta**: A targeted change to one list or card in the cached board, without fetching the whole board again.
+- **Idempotent update**: An update that reaches the same final cache state if the same change is already reflected locally.
+
+### Two-Window Check
+- Start the server with `npm run dev` from `server/` and the client with `npm run dev` from `client/`.
+- Open the same board in two signed-in windows. Create and edit a card, move it to another list, then delete it; confirm each change appears in both windows.
+
 ## Task: Socket.IO Server and List/Card Broadcasts
 
 ### What Was Built
