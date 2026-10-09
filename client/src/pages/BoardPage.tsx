@@ -1,16 +1,47 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { DndContext, KeyboardSensor, PointerSensor, closestCorners, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, arrayMove, horizontalListSortingStrategy, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { ApiError, apiRequest } from '../api/client';
 
-type BoardCard = { id: string; title: string; description: string | null };
-type BoardList = { id: string; title: string; cards: BoardCard[] };
+type BoardCard = { id: string; title: string; description: string | null; position?: number };
+type BoardList = { id: string; title: string; cards: BoardCard[]; position?: number };
 type Board = { id: string; title: string; description: string | null; lists: BoardList[] };
 type Toast = { id: number; message: string };
 const boardKey = (id: string | undefined) => ['board', id];
 const focusClass = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2';
 const inputClass = `w-full border border-border bg-surface px-2.5 py-1.5 text-[13px] ${focusClass}`;
 const buttonClass = `border border-border bg-surface px-3 py-1.5 text-[13px] hover:border-border-hover hover:bg-bg ${focusClass}`;
+
+function midpoint(items: Array<{ position?: number }>, index: number): number {
+  const before = items[index - 1]?.position;
+  const after = items[index]?.position;
+  if (before !== undefined && after !== undefined) return before + (after - before) / 2;
+  if (before !== undefined) return before + 1000;
+  if (after !== undefined) return after - 1000;
+  return 1000;
+}
+
+function SortableCard({ card, onSelect, draggingId }: { card: BoardCard; onSelect: (card: BoardCard) => void; draggingId: string | null }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `card:${card.id}`, data: { type: 'card', cardId: card.id } });
+  const translate = CSS.Transform.toString(transform);
+  return <button ref={setNodeRef} style={{ transform: isDragging ? `${translate ?? ''} rotate(1deg)` : translate, transition }} className={`block w-full border border-border bg-surface p-3 text-left hover:border-border-hover ${focusClass} ${isDragging ? 'z-20 cursor-grabbing border-ink shadow-drag' : ''} ${draggingId ? 'cursor-grab' : ''}`} onClick={() => onSelect(card)} type="button" {...attributes} {...listeners}><span className="break-words text-[14px] font-medium leading-5">{card.title}</span>{card.description && <span className="mt-2 block whitespace-pre-wrap break-words text-[13px] leading-5 text-muted">{card.description}</span>}</button>;
+}
+
+function DroppableList({ listId, children }: { listId: string; children: ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id: `drop:${listId}`, data: { type: 'list-drop', listId } });
+  return <div ref={setNodeRef} className={`min-h-0 flex-1 space-y-2 overflow-y-auto pt-2 ${isOver ? 'bg-bg/50' : ''}`}>{children}</div>;
+}
+
+function SortableList({ list, children }: { list: BoardList; children: ReactNode }) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: `list:${list.id}`, data: { type: 'list', listId: list.id } });
+  return <section ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }} aria-label={`${list.title} list`} className={`relative flex h-[calc(100vh-12rem)] min-h-[24rem] w-[280px] shrink-0 flex-col overflow-hidden border border-border bg-surface-subtle p-2.5 ${isDragging ? 'z-20 border-ink' : ''}`}>
+    {children}
+    <button ref={setActivatorNodeRef} {...attributes} {...listeners} aria-label={`Reorder ${list.title}`} className={`absolute right-1 top-1 z-20 border border-border bg-surface px-1.5 py-0.5 text-[10px] text-muted ${focusClass}`} type="button">Move</button>
+  </section>;
+}
 
 async function fetchBoard(boardId: string): Promise<Board> {
   const response = await apiRequest<{ board: Board }>(`/boards/${encodeURIComponent(boardId)}`);
@@ -70,6 +101,8 @@ export function BoardPage() {
   const [renameValue, setRenameValue] = useState('');
   const [cardTitle, setCardTitle] = useState('');
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
   const toastId = useRef(0);
   const announceFailure = (message: string) => { const id = ++toastId.current; setToasts((current) => [...current, { id, message }]); window.setTimeout(() => setToasts((current) => current.filter((toast) => toast.id !== id)), 5000); };
   async function optimistic(update: (board: Board) => Board, request: () => Promise<unknown>) {
@@ -78,6 +111,39 @@ export function BoardPage() {
     try { await request(); } catch { if (previous) queryClient.setQueryData(key, previous); announceFailure('Unable to save board changes. Check your network connection and retry.'); }
   }
   function runMutation(update: (board: Board) => Board, request: () => Promise<unknown>) { void optimistic(update, request); }
+  async function finishDrag(event: DragEndEvent) {
+    setDraggingId(null);
+    const board = queryClient.getQueryData<Board>(key);
+    const overId = event.over?.id.toString();
+    if (!board || !overId || !boardId || event.active.id === event.over?.id) return;
+    const data = event.active.data.current as { type?: string; cardId?: string; listId?: string } | undefined;
+    if (data?.type === 'list' && overId.startsWith('list:')) {
+      const from = board.lists.findIndex((list) => `list:${list.id}` === event.active.id);
+      const to = board.lists.findIndex((list) => `list:${list.id}` === overId);
+      if (from < 0 || to < 0) return;
+      const reordered = arrayMove(board.lists, from, to);
+      const position = midpoint(reordered.filter((list) => list.id !== data.listId), to);
+      runMutation((current) => ({ ...current, lists: reordered.map((list, index) => ({ ...list, position: midpoint(reordered.filter((item) => item.id !== list.id), index) })) }), () => apiRequest(`/boards/${encodeURIComponent(boardId)}/lists/${encodeURIComponent(data.listId!)}`, { method: 'PATCH', body: JSON.stringify({ position }) }));
+      return;
+    }
+    if (data?.type !== 'card' || !data.cardId) return;
+    const source = board.lists.find((list) => list.cards.some((card) => card.id === data.cardId));
+    const targetListId = overId.startsWith('card:')
+      ? board.lists.find((list) => list.cards.some((card) => `card:${card.id}` === overId))?.id
+      : overId.startsWith('drop:') ? overId.slice(5) : overId.startsWith('list:') ? overId.slice(5) : undefined;
+    const target = board.lists.find((list) => list.id === targetListId);
+    if (!source || !target) return;
+    const card = source.cards.find((item) => item.id === data.cardId);
+    if (!card) return;
+    const sourceCards = source.cards.filter((item) => item.id !== card.id);
+    const targetCards = (source.id === target.id ? sourceCards : target.cards.filter((item) => item.id !== card.id));
+    const overCardIndex = targetCards.findIndex((item) => `card:${item.id}` === overId);
+    const sourceIndex = source.cards.findIndex((item) => item.id === card.id);
+    const insertAt = overCardIndex < 0 ? targetCards.length : source.id === target.id && sourceIndex < overCardIndex ? overCardIndex + 1 : overCardIndex;
+    const position = midpoint(targetCards, insertAt);
+    const nextCards = [...targetCards.slice(0, insertAt), { ...card, position }, ...targetCards.slice(insertAt)];
+    runMutation((current) => ({ ...current, lists: current.lists.map((list) => list.id === source.id ? { ...list, cards: source.id === target.id ? nextCards : sourceCards } : list.id === target.id ? { ...list, cards: nextCards } : list) }), () => apiRequest(`/boards/${encodeURIComponent(boardId)}/cards/${encodeURIComponent(card.id)}/move`, { method: 'PATCH', body: JSON.stringify({ targetListId: target.id, position }) }));
+  }
 
   return <main className="min-h-screen bg-bg px-5 py-5 text-ink sm:px-6 sm:py-6">
     <header className="mx-auto flex max-w-6xl items-center justify-between border-b border-border pb-3"><p className="font-heading text-sm font-semibold tracking-tight">KANBAN / WORKSPACE</p><Link className={`text-[13px] text-muted hover:text-ink ${focusClass}`} to="/boards">Board list</Link></header>
@@ -88,19 +154,25 @@ export function BoardPage() {
         <section className="flex items-end justify-between gap-4 border-b border-border py-5"><div><p className="font-mono text-[11px] uppercase tracking-[0.12em] text-accent">Workspace / board</p><h1 className="mt-2 font-heading text-2xl font-semibold tracking-tight">{boardQuery.data.title}</h1>{boardQuery.data.description && <p className="mt-1 text-[13px] text-muted">{boardQuery.data.description}</p>}</div>
           <form className="flex gap-2" onSubmit={(event) => { event.preventDefault(); const title = newList.trim(); if (!title || !boardId) return; const tempId = `new-${Date.now()}`; const board = boardQuery.data; setNewList(''); runMutation((current) => ({ ...current, lists: [...current.lists, { id: tempId, title, cards: [] }] }), async () => { const result = await apiRequest<{ list: BoardList }>(`/boards/${encodeURIComponent(boardId)}/lists`, { method: 'POST', body: JSON.stringify({ title }) }); queryClient.setQueryData<Board>(key, (current) => current ? { ...current, lists: current.lists.map((list) => list.id === tempId ? result.list : list) } : board); }); }}><label className="sr-only" htmlFor="new-list">New list name</label><input className="w-40 border border-border bg-surface px-2.5 py-1.5 text-[13px]" id="new-list" onChange={(event) => setNewList(event.target.value)} placeholder="List name" value={newList} /><button className={buttonClass} type="submit">Add list</button></form>
         </section>
+        <DndContext collisionDetection={closestCorners} sensors={sensors} onDragStart={(event) => setDraggingId(event.active.id.toString())} onDragCancel={() => setDraggingId(null)} onDragEnd={(event) => void finishDrag(event)}>
+        <SortableContext items={boardQuery.data.lists.map((list) => `list:${list.id}`)} strategy={horizontalListSortingStrategy}>
         <section aria-label="Board lists" className="mt-5 flex min-h-[calc(100vh-12rem)] gap-5 overflow-x-auto overflow-y-hidden pb-3">
-          {boardQuery.data.lists.map((list) => <section aria-label={`${list.title} list`} className="flex h-[calc(100vh-12rem)] min-h-[24rem] w-[280px] shrink-0 flex-col overflow-hidden border border-border bg-surface-subtle p-2.5" key={list.id}>
-            <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-border bg-surface-subtle px-1 py-2">
+          {boardQuery.data.lists.map((list) => <SortableList key={list.id} list={list}>
+            <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-border bg-surface-subtle px-1 py-2 pr-14">
               {renaming === list.id ? <form className="flex min-w-0 flex-1 gap-1" onSubmit={(event) => { event.preventDefault(); const title = renameValue.trim(); if (!title || !boardId) return; setRenaming(null); runMutation((board) => ({ ...board, lists: board.lists.map((item) => item.id === list.id ? { ...item, title } : item) }), () => apiRequest(`/boards/${encodeURIComponent(boardId)}/lists/${encodeURIComponent(list.id)}`, { method: 'PATCH', body: JSON.stringify({ title }) })); }}><label className="sr-only" htmlFor={`rename-${list.id}`}>List name</label><input autoFocus className="min-w-0 flex-1 border border-border bg-surface px-1 text-[13px]" id={`rename-${list.id}`} onChange={(event) => setRenameValue(event.target.value)} value={renameValue} /><button aria-label="Save list name" className={buttonClass} type="submit">Save</button></form> : <><h2 className="min-w-0 flex-1 truncate font-heading text-sm font-semibold">{list.title}</h2><button aria-label={`Rename ${list.title}`} className="text-[11px] text-muted hover:text-ink" onClick={() => { setRenaming(list.id); setRenameValue(list.title); }} type="button">Rename</button><button aria-label={`Delete ${list.title}`} className="text-[11px] text-danger" onClick={() => { if (!window.confirm(`Delete “${list.title}” and all its cards?` ) || !boardId) return; runMutation((board) => ({ ...board, lists: board.lists.filter((item) => item.id !== list.id) }), () => apiRequest(`/boards/${encodeURIComponent(boardId)}/lists/${encodeURIComponent(list.id)}`, { method: 'DELETE' })); }} type="button">Delete</button></>}
               <span className="shrink-0 font-mono text-[11px] text-muted">{list.cards.length}</span>
             </header>
-            <div aria-label={`${list.title} cards`} className="min-h-0 flex-1 space-y-2 overflow-y-auto pt-2">
+            <SortableContext items={list.cards.map((card) => `card:${card.id}`)} strategy={verticalListSortingStrategy}>
+            <DroppableList listId={list.id}>
               {list.cards.length === 0 && <p className="px-1 py-2 text-[12px] text-muted">No cards in this list.</p>}
-              {list.cards.map((card) => <button className="block w-full border border-border bg-surface p-3 text-left hover:border-border-hover" key={card.id} onClick={() => setSelectedCard(card)} type="button"><span className="break-words text-[14px] font-medium leading-5">{card.title}</span>{card.description && <span className="mt-2 block whitespace-pre-wrap break-words text-[13px] leading-5 text-muted">{card.description}</span>}</button>)}
-            </div>
+              {list.cards.map((card) => <SortableCard card={card} draggingId={draggingId} key={card.id} onSelect={setSelectedCard} />)}
+            </DroppableList>
+            </SortableContext>
             {composer === list.id ? <form className="space-y-2 border-t border-border pt-2" onSubmit={(event) => { event.preventDefault(); const title = cardTitle.trim(); if (!title || !boardId) return; const tempId = `new-${Date.now()}`; setCardTitle(''); setComposer(null); runMutation((board) => ({ ...board, lists: board.lists.map((item) => item.id === list.id ? { ...item, cards: [...item.cards, { id: tempId, title, description: null }] } : item) }), async () => { const result = await apiRequest<{ card: BoardCard }>(`/boards/${encodeURIComponent(boardId)}/lists/${encodeURIComponent(list.id)}/cards`, { method: 'POST', body: JSON.stringify({ title }) }); queryClient.setQueryData<Board>(key, (current) => current ? { ...current, lists: current.lists.map((item) => item.id === list.id ? { ...item, cards: item.cards.map((card) => card.id === tempId ? result.card : card) } : item) } : current); }); }}><label className="sr-only" htmlFor={`new-card-${list.id}`}>Card title</label><input autoFocus className={inputClass} id={`new-card-${list.id}`} onChange={(event) => setCardTitle(event.target.value)} placeholder="Card title" value={cardTitle} /><div className="flex gap-2"><button className={buttonClass} type="submit">Add card</button><button className="text-[12px] text-muted" onClick={() => { setComposer(null); setCardTitle(''); }} type="button">Cancel</button></div></form> : <button className="mt-2 border-t border-border py-2 text-left text-[12px] text-muted hover:text-ink" onClick={() => setComposer(list.id)} type="button">+ Add card</button>}
-          </section>)}
+          </SortableList>)}
         </section>
+        </SortableContext>
+        </DndContext>
       </>}
     </div>
     {selectedCard && boardId && <CardEditor boardId={boardId} card={selectedCard} onClose={() => setSelectedCard(null)} onFailure={announceFailure} onUpdate={(card) => { setSelectedCard(card); queryClient.setQueryData<Board>(key, (board) => board ? { ...board, lists: board.lists.map((list) => ({ ...list, cards: list.cards.map((item) => item.id === card.id ? card : item) })) } : board); }} onQueryClient={queryClient} />}

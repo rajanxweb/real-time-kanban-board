@@ -1,5 +1,23 @@
 # Learning notes
 
+## Task: Drag and Drop for Lists and Cards
+
+### What Was Built
+- Added dnd-kit pointer and keyboard controls to reorder lists and move cards within or across lists.
+- Calculated midpoint positions between destination neighbors and sent list updates or card move requests to the existing API.
+- Updated the board cache immediately when a drag ends, restoring its previous state and showing the existing failure toast if the request fails.
+- Styled the actively dragged card with the design system's drag shadow and a 1-degree rotation.
+
+### Why This Approach
+- dnd-kit supplies sortable keyboard interactions as well as pointer dragging without changing the server API.
+- Midpoint placement matches the server's fractional ordering model, so a normal move updates only the moved item.
+- Optimistic cache updates make ordering immediate while rollback keeps the display aligned with the server after a rejected request.
+
+### Key Terms
+- **Drag sensor**: Input handling that lets a user start and control a drag with a pointer or keyboard.
+- **Sortable context**: The ordered set dnd-kit uses to calculate positions while moving lists or cards.
+- **Midpoint position**: A number between neighboring positions used to insert an item without renumbering the whole collection.
+
 ## Task: Board List and Card Editing
 
 ### What Was Built
