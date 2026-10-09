@@ -1,5 +1,22 @@
 # Learning notes
 
+## Task: Hosted Deployment Configuration
+
+### What Was Built
+- Added a Vercel SPA rewrite and a deployment guide for Neon, Render, and Vercel.
+- Configured Prisma to use the pooled `DATABASE_URL` for application connections and `DIRECT_URL` for migrations.
+- Added configurable Express proxy-hop handling and documented the Vercel API/socket URL variables and server CORS origin.
+
+### Why This Approach
+- The pooled URL reduces pressure on the database from application connections, while the direct URL is available for migration operations.
+- Trusting only the configured number of hosting proxy hops lets Express use forwarded client addresses without trusting arbitrary proxy chains.
+- The guide sequences the deployments so the final Vercel origin can be applied to the server’s shared HTTP and Socket.IO CORS settings.
+
+### Key Terms
+- **Pooled connection**: A database connection routed through a pool to reduce direct database connections.
+- **Trust proxy hops**: The number of trusted forwarding proxies Express uses when reading client IP information.
+- **SPA rewrite**: A hosting rule that serves the app entry page for browser-side routes.
+
 ## Task: Continuous Integration and Dependency Updates
 
 ### What Was Built

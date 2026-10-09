@@ -21,6 +21,7 @@ export function configureTestEnvironment(): void {
     process.env.KANBAN_TEST_DATABASE_READY === 'true' &&
     process.env.DATABASE_URL === testDatabaseUrl
   ) {
+    process.env.DIRECT_URL = testDatabaseUrl;
     return;
   }
 
@@ -35,5 +36,6 @@ export function configureTestEnvironment(): void {
   }
 
   process.env.DATABASE_URL = testDatabaseUrl;
+  process.env.DIRECT_URL = testDatabaseUrl;
   process.env.KANBAN_TEST_DATABASE_READY = 'true';
 }
