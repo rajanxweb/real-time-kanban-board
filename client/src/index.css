@@ -10,6 +10,20 @@
 @tailwind utilities;
 
 @layer base {
+  button,
+  input,
+  textarea,
+  article,
+  [role='dialog'],
+  .kanban-list {
+    border-radius: 3px;
+  }
+
+  :focus-visible {
+    outline: 2px solid #e4572e;
+    outline-offset: 2px;
+  }
+
   body {
     background-color: #f4f1ea;
     color: #1b1a17;

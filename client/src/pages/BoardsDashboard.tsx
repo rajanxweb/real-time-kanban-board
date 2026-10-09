@@ -30,7 +30,7 @@ function getRequestError(error: unknown): string {
   if (error instanceof TypeError) {
     return 'Unable to reach the server. Check your connection and try again.';
   }
-  return 'The request could not be completed. Try again.';
+  return 'Unable to complete this board request. Check your connection and try again.';
 }
 
 function BoardLoadingRows() {
@@ -114,7 +114,7 @@ export function BoardsDashboard() {
       <div className="mx-auto max-w-6xl">
         <section className="flex flex-col justify-between gap-4 border-b border-border py-6 sm:flex-row sm:items-end">
           <div>
-            <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-accent">
+            <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-ink">
               Workspace / boards
             </p>
             <h1 className="mt-2 font-heading text-2xl font-semibold tracking-tight">Your boards</h1>
@@ -159,7 +159,7 @@ export function BoardsDashboard() {
               />
             </div>
             <button
-              className="border border-ink bg-ink px-4 py-2 text-[13px] font-medium text-bg hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-60"
+              className="border border-ink bg-ink px-4 py-2 text-[13px] font-medium text-bg hover:bg-[#33312B] focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-60"
               disabled={createBoard.isPending || !title.trim()}
               type="submit"
             >
@@ -194,9 +194,9 @@ export function BoardsDashboard() {
           )}
 
           {boardsQuery.isSuccess && boardsQuery.data.length === 0 && (
-            <div className="border-y border-border bg-surface px-4 py-6">
+            <div className="rounded border-y border-border bg-surface px-4 py-6">
               <h3 className="font-heading text-base font-semibold">No boards yet</h3>
-              <p className="mt-1 text-[13px] text-muted">Create a board above to organize work with your team.</p>
+              <p className="mt-1 text-[13px] text-muted">You do not belong to any boards yet. Create a board to get started.</p>
             </div>
           )}
 

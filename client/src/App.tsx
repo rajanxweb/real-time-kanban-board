@@ -25,7 +25,7 @@ function SessionError() {
   return (
     <main className="min-h-screen bg-bg px-6 py-8 text-ink">
       <section className="mx-auto max-w-lg border border-border bg-surface p-5">
-        <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-accent">
+        <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-ink">
           Session / unavailable
         </p>
         <h1 className="mt-3 font-heading text-xl font-semibold">Unable to verify your session.</h1>

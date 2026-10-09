@@ -1,5 +1,23 @@
 # Learning notes
 
+## Task: Design System and Screen Accessibility Review
+
+### What Was Built
+- Reviewed the account, session, dashboard, board, and card dialog screens against the design system.
+- Added a clear empty-board state with focus on the list name field, mobile snap scrolling for board lists, and narrow-screen adjustments to the board header and columns.
+- Standardized visible focus rings and 3px component corners, replaced low-contrast accent text with ink, and made fallback messages more specific.
+- Added an inline card-dialog error notice and saving state so failed edits remain visible and actionable.
+
+### Why This Approach
+- Shared focus and corner rules keep existing screens consistent without adding components or dependencies.
+- Explicit empty and error messages make missing data and failed requests understandable, while responsive list snapping keeps columns usable on small screens.
+- Using ink for small labels preserves the warm palette while improving text contrast.
+
+### Key Terms
+- **Focus-visible ring**: A high-contrast outline shown when navigating controls with a keyboard.
+- **Scroll snap**: Browser behavior that aligns each horizontally scrolling list column into view on mobile.
+- **Empty state**: Screen content that explains what the user sees when a collection has no items.
+
 ## Task: Drag and Drop for Lists and Cards
 
 ### What Was Built

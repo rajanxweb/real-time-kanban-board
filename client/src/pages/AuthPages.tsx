@@ -40,8 +40,8 @@ function getSubmissionError(error: unknown, mode: FormMode): string {
   }
 
   return mode === 'login'
-    ? 'Unable to sign in. Try again.'
-    : 'Unable to create your account. Try again.';
+    ? 'Unable to sign in. Check your details and try again.'
+    : 'Unable to create your account. Check your details and try again.';
 }
 
 function AuthFrame({
@@ -72,7 +72,7 @@ function AuthFrame({
 
       <div className="mx-auto grid max-w-6xl items-center gap-8 py-8 sm:py-12 lg:grid-cols-[1fr_0.82fr] lg:gap-16 lg:py-16">
         <section className="max-w-lg">
-          <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-accent">
+          <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink">
             {isRegister ? 'Account / 02' : 'Account / 01'}
           </p>
           <h1 className="mt-3 max-w-md font-heading text-2xl font-semibold leading-tight tracking-tight">
@@ -92,7 +92,7 @@ function AuthFrame({
         </section>
 
         <section className="relative isolate mx-auto w-full max-w-md before:absolute before:inset-x-1 before:inset-y-1 before:-z-10 before:rotate-[1deg] before:border before:border-border before:bg-surface-subtle">
-          <div className="border border-border bg-surface p-5 sm:p-6">
+          <div className="rounded border border-border bg-surface p-5 sm:p-6">
             <div className="flex items-start justify-between border-b border-border pb-3">
               <div>
                 <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
