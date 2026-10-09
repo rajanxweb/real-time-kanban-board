@@ -582,3 +582,17 @@
 - **Board detail query**: A cached request keyed by board ID that retrieves one board's lists and cards.
 - **Sticky list header**: A list title and count that remain visible while the cards within that column scroll.
 - **Forbidden response**: An HTTP 403 response indicating that the signed-in user cannot access the requested board.
+
+## Task: Stabilize the Card Composer Test
+
+### What Was Built
+- Updated the card composer test to check the card as soon as it appears in the optimistic UI, then confirm the create request was sent.
+- Stubbed the socket provider in these client flow tests so reconnects and presence do not affect isolated UI checks.
+
+### Why This Approach
+- The card is intentionally rendered before the server request finishes. An async text query could observe a later render instead of this immediate state, causing the CI test to fail intermittently.
+- Socket behavior has separate integration coverage, so isolating the provider keeps this UI test focused on the composer.
+
+### Key Terms
+- **Optimistic UI**: Showing a requested change immediately while the server is still processing it.
+- **Test isolation**: Replacing an external connection with a predictable stub while testing one UI flow.
