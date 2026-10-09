@@ -1,5 +1,47 @@
 # Learning notes
 
+## Task: Avoid Local API Port Conflict
+
+### What Was Built
+- Changed the Compose published API port default to 5001 and made the client build use the same configured port for API and Socket.IO connections.
+
+### Why This Approach
+- The usual local API development server uses port 5000. Publishing the container on 5001 lets the local and containerized APIs run at the same time.
+
+### Key Terms
+- **Published port**: A host port forwarded to a port inside a container.
+- **Build argument**: A value provided during image building, used here for the browser’s API and socket URLs.
+
+## Task: Avoid Host Database Port Conflicts
+
+### What Was Built
+- Removed the database host-port mapping from Compose and updated the run instructions to explain that PostgreSQL is only reachable inside the Compose network.
+
+### Why This Approach
+- The API connects to the database using the Compose service name, so the app does not need a host port for PostgreSQL. Removing the mapping avoids collisions with another local database using port 5433.
+
+### Key Terms
+- **Compose network**: The private network where Compose services reach one another by service name.
+- **Port mapping**: A rule that exposes a container port on the host machine.
+
+## Task: Docker Compose App Startup
+
+### What Was Built
+- Added multi-stage Docker builds for the server and client. The server runs as the non-root `node` user and applies Prisma migrations before starting; the client is served by Nginx with a single-page-app fallback.
+- Extended Compose to start PostgreSQL, the server, and the client with readiness checks and health-based startup ordering.
+- Updated the README with the local startup instructions and documented the Compose URLs and environment overrides.
+
+### Why This Approach
+- Compose healthchecks keep the server from migrating until PostgreSQL is ready and keep the client from starting before the API has opened its port.
+- The client uses build-time API and socket URLs to connect directly to the published server ports, so Nginx only needs to serve the static app.
+- Multi-stage builds keep source/build tooling out of the final client image, while the server runtime image installs only production dependencies.
+- The container generates a temporary random JWT key when none is configured, allowing a local Compose startup without committing a fixed secret.
+
+### Key Terms
+- **Multi-stage build**: A Docker build that uses separate stages for compiling and running an application.
+- **Healthcheck**: A container check used by Compose to decide when a service is ready.
+- **SPA fallback**: Serving `index.html` for client-side routes that do not map to static files.
+
 ## Task: Socket and Client Flow Tests
 
 ### What Was Built
