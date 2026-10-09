@@ -1,5 +1,22 @@
 # Learning notes
 
+## Task: Continuous Integration and Dependency Updates
+
+### What Was Built
+- Added a GitHub Actions workflow for pushes to `main` and pull requests targeting `main`. It installs both packages, runs lint, typecheck, tests and production builds, and builds both Docker images.
+- Added a PostgreSQL service for server integration tests, including a separate test database.
+- Added npm Dependabot updates for the client and server and a CI status badge to the README.
+
+### Why This Approach
+- Running the same package scripts in CI catches type, lint, test, and build failures before changes are merged.
+- The server tests run against an isolated PostgreSQL database provided by the workflow, rather than requiring a developer's local database.
+- Dependabot checks both npm lockfiles so dependency updates can be reviewed as pull requests.
+
+### Key Terms
+- **GitHub Actions**: GitHub's workflow runner for automated checks.
+- **Service container**: A temporary database container attached to a CI job.
+- **Dependabot**: GitHub's tool for proposing dependency updates.
+
 ## Task: Avoid Local API Port Conflict
 
 ### What Was Built

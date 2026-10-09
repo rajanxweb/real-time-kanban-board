@@ -2,6 +2,8 @@
 
 # Real-Time Collaborative Kanban Board
 
+![CI](https://github.com/rajanxweb/real-time-kanban-board/actions/workflows/ci.yml/badge.svg?branch=main)
+
 A real-time collaborative Kanban board for team task management and workflow tracking.
 
 ## Run with Docker Compose
