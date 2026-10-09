@@ -1,7 +1,10 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import { createServer } from 'node:http';
 import request from 'supertest';
+import { io as createSocketClient, type Socket } from 'socket.io-client';
 import { app } from '../src/app.js';
 import { prisma } from '../src/lib/prisma.js';
+import { attachSocketServer } from '../src/socket/index.js';
 
 type RegisteredAccount = {
   token: string;
@@ -189,4 +192,79 @@ describe('API integration', () => {
       lists.find((list) => list.id === target.id)?.cards.map((card) => card.position),
     ).toEqual([1000, 1500, 2000]);
   });
+
+  it('broadcasts card moves between authenticated board members and refuses a non-member', async () => {
+    const owner = await registerAccount('socket-owner@example.com');
+    const member = await registerAccount('socket-member@example.com');
+    const visitor = await registerAccount('socket-visitor@example.com');
+    const board = await createBoard(owner.token, 'Socket board');
+    const invitation = await request(app)
+      .post(`/api/v1/boards/${board.id}/members`)
+      .set('Authorization', `Bearer ${owner.token}`)
+      .send({ email: member.user.email });
+    expect(invitation.status).toBe(201);
+
+    const source = await createList(owner.token, board.id, 'Source');
+    const target = await createList(owner.token, board.id, 'Target');
+    const card = await createCard(owner.token, board.id, source.id, 'Moving card', 1000);
+    const httpServer = createServer(app);
+    const socketServer = attachSocketServer(httpServer);
+    await new Promise<void>((resolve, reject) => {
+      httpServer.once('error', reject);
+      httpServer.listen(0, resolve);
+    });
+    const address = httpServer.address();
+    if (!address || typeof address === 'string') throw new Error('Socket test server did not bind to a TCP port');
+    const socketUrl = `http://127.0.0.1:${address.port}`;
+    const clients: Socket[] = [];
+
+    async function connect(token: string): Promise<Socket> {
+      const client = createSocketClient(socketUrl, { auth: { token }, transports: ['websocket'], reconnection: false });
+      clients.push(client);
+      await new Promise<void>((resolve, reject) => {
+        client.once('connect', resolve);
+        client.once('connect_error', reject);
+      });
+      return client;
+    }
+
+    async function join(client: Socket): Promise<{ success: boolean; error?: { code: string } }> {
+      return new Promise((resolve) => {
+        client.emit('board:join', { boardId: board.id }, (response: { success: boolean; error?: { code: string } }) => resolve(response));
+      });
+    }
+
+    try {
+      const ownerSocket = await connect(owner.token);
+      const memberSocket = await connect(member.token);
+      const visitorSocket = await connect(visitor.token);
+      expect((await join(ownerSocket)).success).toBe(true);
+      expect((await join(memberSocket)).success).toBe(true);
+      const denied = await join(visitorSocket);
+      expect(denied).toMatchObject({ success: false, error: { code: 'ACCESS_DENIED' } });
+
+      const movedEvent = new Promise<unknown>((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('Timed out waiting for card:moved')), 5000);
+        memberSocket.once('card:moved', (payload: unknown) => {
+          clearTimeout(timer);
+          resolve(payload);
+        });
+      });
+      const move = await request(app)
+        .patch(`/api/v1/boards/${board.id}/cards/${card.id}/move`)
+        .set('Authorization', `Bearer ${owner.token}`)
+        .send({ targetListId: target.id, position: 1000 });
+      expect(move.status).toBe(200);
+      expect(await movedEvent).toMatchObject({
+        boardId: board.id,
+        cardId: card.id,
+        sourceListId: source.id,
+        targetListId: target.id,
+        position: 1000,
+      });
+    } finally {
+      clients.forEach((client) => client.disconnect());
+      await new Promise<void>((resolve) => socketServer.close(() => resolve()));
+    }
+  }, 20000);
 });

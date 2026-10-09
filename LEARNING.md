@@ -1,5 +1,22 @@
 # Learning notes
 
+## Task: Socket and Client Flow Tests
+
+### What Was Built
+- Added a Socket.IO integration test with an owner, a board member, and a non-member. It checks that both members can join, the non-member is denied, and the member receives `card:moved` after the owner moves a card.
+- Added React Testing Library coverage for invalid login input, submitting a card through the inline composer, and the empty-board message.
+- Added Vitest browser-like setup for the client and documented the test coverage and required commands in `docs/08-test-plan.md`.
+
+### Why This Approach
+- The socket test goes through the same REST move route used by the app, so it checks the full path from an authorized mutation to the room broadcast.
+- The client tests render the existing screens and verify their user-visible behavior, while mocking only the API boundary.
+- jsdom provides the DOM needed by React Testing Library without requiring a browser in automated runs.
+
+### Key Terms
+- **Integration test**: A test that runs connected parts of the application together, such as REST, database access, and Socket.IO.
+- **React Testing Library**: A tool for checking React interfaces through the controls and text users interact with.
+- **jsdom**: A JavaScript implementation of browser DOM APIs used by client-side tests.
+
 ## Task: Server Security Hardening and Audit
 
 ### What Was Built
