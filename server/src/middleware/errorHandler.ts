@@ -18,6 +18,18 @@ export function errorHandler(
 
   const production = isProduction();
 
+  if (typeof err === 'object' && err !== null && 'type' in err) {
+    const parserError = err as { type?: unknown };
+    if (parserError.type === 'entity.too.large') {
+      res.status(413).json({ success: false, error: { code: 'PAYLOAD_TOO_LARGE', message: 'Request body exceeds the 1 MB limit' } });
+      return;
+    }
+    if (parserError.type === 'entity.parse.failed') {
+      res.status(400).json({ success: false, error: { code: 'INVALID_JSON', message: 'Request body must be valid JSON' } });
+      return;
+    }
+  }
+
   if (err instanceof AppError) {
     if (err.code) {
       res.status(err.statusCode).json({

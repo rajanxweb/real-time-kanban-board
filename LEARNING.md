@@ -1,5 +1,24 @@
 # Learning notes
 
+## Task: Server Security Hardening and Audit
+
+### What Was Built
+- Added Helmet headers, CORS limited to `CLIENT_ORIGIN`, a 1 MB JSON body limit, and a per-IP rate limit of 20 requests per 15 minutes across `/api/v1/auth`.
+- Protected the health route with bearer authentication and returned explicit client errors for oversized or malformed JSON bodies.
+- Audited REST parameter/body validation and socket payload validation, and checked authorization on routes and board-room socket actions.
+- Rechecked membership for room rosters and broadcasts, removing sockets whose board membership was revoked.
+- Added `docs/07-security-plan.md` describing the protections, audit findings, and operating limits. Git tracks only the three `.env.example` templates; I replaced their database and JWT values with explicit placeholders. No runtime `.env` or common private-key/credential files are tracked.
+
+### Why This Approach
+- Middleware applies shared transport protections consistently before route handling, while existing Zod schemas and authorization guards continue to enforce request-specific rules.
+- Rechecking room membership before sending board events closes the gap where a removed member could keep receiving updates through an already joined socket.
+- Rate limiting and a bounded body parser constrain repeated authentication attempts and oversized input without adding external infrastructure.
+
+### Key Terms
+- **CORS allowlist**: The exact browser origin permitted to call the API from another origin.
+- **Rate limit**: A cap on requests from one client address during a fixed time window.
+- **Room authorization**: Confirming each connected socket still belongs to a board before sending its updates.
+
 ## Task: Board Presence and Reconnection Status
 
 ### What Was Built
