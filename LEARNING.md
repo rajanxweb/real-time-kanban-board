@@ -1,5 +1,22 @@
 # Learning notes
 
+## Task: Board List and Card Editing
+
+### What Was Built
+- Added list creation, inline list renaming, and confirmed list deletion to the board canvas.
+- Added an inline card composer at the bottom of each list and a card detail dialog for editing titles and descriptions or deleting cards.
+- Applied optimistic board updates with rollback and an on-screen failure toast for failed list and card requests. The card dialog traps keyboard focus, closes with Escape, and restores focus to the opener.
+
+### Why This Approach
+- The existing list and card API routes already provide the needed operations, so the client reuses those contracts without adding server endpoints or dependencies.
+- Updating the cached board immediately keeps the interface responsive; restoring the previous board snapshot and showing a notice makes failed saves visible.
+- A small dialog focus loop keeps keyboard users inside the card editor and returns them to the card they opened afterward.
+
+### Key Terms
+- **Optimistic update**: Updating the visible board before the server responds, then restoring its previous data if the request fails.
+- **Focus trap**: Keyboard behavior that cycles Tab navigation among controls inside an open dialog.
+- **Inline composer**: A small form displayed in the list where the new card will appear.
+
 ## Task: Boards and Board Members API
 
 ### What Was Built
