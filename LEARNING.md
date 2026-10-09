@@ -1,5 +1,23 @@
 # Learning notes
 
+## Task: Socket.IO Server and List/Card Broadcasts
+
+### What Was Built
+- Attached a Socket.IO server to the same HTTP server as Express and installed the existing JWT authentication check on its handshake.
+- Added Zod-validated `board:join` and `board:leave` handlers. Joining checks board membership, enters `board:<id>`, and acknowledges with the active room users; leaving can only remove that socket from its own room.
+- Emitted the documented list and card create, update, move, and delete events after their REST services complete successfully. Room broadcasts include the originating socket as requested.
+- Returned source-list information from the card move/delete services so the broadcast payloads include the IDs required by the event contract.
+
+### Why This Approach
+- Reusing the access-token service keeps socket and REST authentication consistent, including checking that the user still exists.
+- Board-specific rooms scope each mutation event to collaborators who joined that board, and membership checks run before a socket can join.
+- Controllers emit only after the database service succeeds, so failed mutations do not publish state changes.
+
+### Key Terms
+- **Socket handshake**: The initial connection request where the client supplies its JWT before the server accepts the socket.
+- **Board room**: A Socket.IO group named `board:<id>` used to deliver updates for one board.
+- **Broadcast event**: A small payload sent to room members after a successful REST mutation.
+
 ## Task: Design System and Screen Accessibility Review
 
 ### What Was Built

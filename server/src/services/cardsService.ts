@@ -168,14 +168,15 @@ export async function moveCard(cardId: string, input: MoveCardBody) {
       rebalanceCards(transaction, items),
     );
 
-    return transaction.card.update({
+    const updatedCard = await transaction.card.update({
       where: { id: cardId },
       data: { listId: targetList.id, position },
       select: { id: true, listId: true, position: true, updatedAt: true },
     });
+    return { card: updatedCard, sourceListId: card.listId };
   });
 }
 
-export async function deleteCard(cardId: string): Promise<void> {
-  await prisma.card.delete({ where: { id: cardId } });
+export async function deleteCard(cardId: string): Promise<{ listId: string }> {
+  return prisma.card.delete({ where: { id: cardId }, select: { listId: true } });
 }

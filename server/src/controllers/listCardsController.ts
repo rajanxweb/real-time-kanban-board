@@ -9,6 +9,7 @@ import type {
   UpdateCardBody,
   UpdateListBody,
 } from '../validators/listCards.js';
+import { emitToBoard } from '../socket/index.js';
 
 function boardId(req: Request): string {
   return readPathParam(req.params.boardId, 'boardId');
@@ -27,6 +28,7 @@ export async function createListRoute(
   res: Response,
 ): Promise<void> {
   const list = await createList(boardId(req), req.body as CreateListBody);
+  emitToBoard('list:created', boardId(req), { boardId: boardId(req), list });
   res.status(201).json({ success: true, data: { list } });
 }
 
@@ -38,6 +40,7 @@ export async function updateListRoute(
     listId(req),
     req.body as UpdateListBody,
   );
+  emitToBoard('list:updated', boardId(req), { boardId: boardId(req), list });
   res.status(200).json({ success: true, data: { list } });
 }
 
@@ -45,7 +48,10 @@ export async function deleteListRoute(
   req: Request,
   res: Response,
 ): Promise<void> {
-  await deleteList(listId(req));
+  const currentBoardId = boardId(req);
+  const currentListId = listId(req);
+  await deleteList(currentListId);
+  emitToBoard('list:deleted', currentBoardId, { boardId: currentBoardId, listId: currentListId });
   res.status(200).json({
     success: true,
     data: { message: 'List and all child cards deleted successfully' },
@@ -57,6 +63,7 @@ export async function createCardRoute(
   res: Response,
 ): Promise<void> {
   const card = await createCard(listId(req), req.body as CreateCardBody);
+  emitToBoard('card:created', boardId(req), { boardId: boardId(req), listId: listId(req), card });
   res.status(201).json({ success: true, data: { card } });
 }
 
@@ -65,6 +72,7 @@ export async function updateCardRoute(
   res: Response,
 ): Promise<void> {
   const card = await updateCard(cardId(req), req.body as UpdateCardBody);
+  emitToBoard('card:updated', boardId(req), { boardId: boardId(req), card });
   res.status(200).json({ success: true, data: { card } });
 }
 
@@ -72,7 +80,16 @@ export async function moveCardRoute(
   req: Request,
   res: Response,
 ): Promise<void> {
-  const card = await moveCard(cardId(req), req.body as MoveCardBody);
+  const result = await moveCard(cardId(req), req.body as MoveCardBody);
+  const { card, sourceListId } = result;
+  emitToBoard('card:moved', boardId(req), {
+    boardId: boardId(req),
+    cardId: card.id,
+    sourceListId,
+    targetListId: card.listId,
+    position: card.position,
+    updatedAt: card.updatedAt,
+  });
   res.status(200).json({ success: true, data: { card } });
 }
 
@@ -80,7 +97,14 @@ export async function deleteCardRoute(
   req: Request,
   res: Response,
 ): Promise<void> {
-  await deleteCard(cardId(req));
+  const currentBoardId = boardId(req);
+  const currentCardId = cardId(req);
+  const { listId: currentListId } = await deleteCard(currentCardId);
+  emitToBoard('card:deleted', currentBoardId, {
+    boardId: currentBoardId,
+    listId: currentListId,
+    cardId: currentCardId,
+  });
   res.status(200).json({
     success: true,
     data: { message: 'Card deleted successfully' },
