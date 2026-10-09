@@ -1,5 +1,23 @@
 # Learning notes
 
+## Task: Board Presence and Reconnection Status
+
+### What Was Built
+- Added per-board online tracking on the server, with each user represented once even when they have multiple tabs open.
+- Broadcast online and offline `presence:update` events on board joins, leaves, and disconnects. A user is marked offline only after their final tab leaves that board.
+- Added a board avatar stack with name tooltips and a connected/reconnecting status label.
+- On socket reconnection, the client rejoins the board and refetches its board query to recover changes missed while disconnected.
+
+### Why This Approach
+- Counting the user's sockets in a board room prevents one tab closing from incorrectly marking the user offline while another tab remains connected.
+- The join acknowledgment provides the initial online roster; presence events keep it current without polling.
+- Refetching after reconnection restores the authoritative board snapshot after any missed delta events.
+
+### Key Terms
+- **Presence**: The set of users currently connected to a board.
+- **Multi-tab presence**: Counting several sockets for one user as one online participant.
+- **Reconciliation fetch**: Reloading the authoritative board after reconnection to recover updates missed while offline.
+
 ## Task: Client Board Socket Updates
 
 ### What Was Built

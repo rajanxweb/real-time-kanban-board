@@ -15,11 +15,14 @@ declare module 'socket.io' {
 const tokenSchema = z.string().min(1);
 const boardPayloadSchema = z.object({ boardId: z.string().min(1) });
 const roomName = (boardId: string) => `board:${boardId}`;
+const boardIdFromRoom = (room: string) => room.startsWith('board:') ? room.slice(6) : null;
+
+type ActiveUser = { userId: string; name: string; email: string; activeCardId: string | null };
 
 type JoinAcknowledgment = {
   success: boolean;
   boardId?: string;
-  activeUsers?: Array<{ userId: string; name: string; email: string; activeCardId: null }>;
+  activeUsers?: ActiveUser[];
   error?: { code: string; message: string };
 };
 
@@ -60,12 +63,15 @@ export function attachSocketServer(server: HttpServer): Server {
         }
 
         const room = roomName(parsed.data.boardId);
+        const existingSockets = await io.in(room).fetchSockets();
+        const wasOnline = existingSockets.some((connection) => connection.data.user.id === socket.data.user.id);
         await socket.join(room);
-        const activeUsers = new Map<string, { userId: string; name: string; email: string; activeCardId: null }>();
+        const activeUsers = new Map<string, ActiveUser>();
         for (const connection of await io.in(room).fetchSockets()) {
           const user = connection.data.user;
           activeUsers.set(user.id, { userId: user.id, name: user.name, email: user.email, activeCardId: null });
         }
+        if (!wasOnline) io.to(room).emit('presence:update', { boardId: parsed.data.boardId, userId: socket.data.user.id, name: socket.data.user.name, status: 'online', cardId: null });
         acknowledge?.({ success: true, boardId: parsed.data.boardId, activeUsers: [...activeUsers.values()] });
       } catch {
         acknowledge?.({ success: false, error: { code: 'ACCESS_DENIED', message: 'User is not a member of this board' } });
@@ -77,11 +83,27 @@ export function attachSocketServer(server: HttpServer): Server {
       if (!parsed.success) return;
 
       const room = roomName(parsed.data.boardId);
+      if (!socket.rooms.has(room)) return;
       try {
         const member = await isBoardMember(parsed.data.boardId, socket.data.user.id);
-        if (member || socket.rooms.has(room)) await socket.leave(room);
+        if (!member && !socket.rooms.has(room)) return;
+        const sameUserSockets = (await io.in(room).fetchSockets()).filter((connection) => connection.data.user.id === socket.data.user.id && connection.id !== socket.id);
+        await socket.leave(room);
+        if (sameUserSockets.length === 0) io.to(room).emit('presence:update', { boardId: parsed.data.boardId, userId: socket.data.user.id, name: socket.data.user.name, status: 'offline', cardId: null });
       } catch {
-        if (socket.rooms.has(room)) await socket.leave(room);
+        if (!socket.rooms.has(room)) return;
+        const sameUserSockets = (await io.in(room).fetchSockets()).filter((connection) => connection.data.user.id === socket.data.user.id && connection.id !== socket.id);
+        await socket.leave(room);
+        if (sameUserSockets.length === 0) io.to(room).emit('presence:update', { boardId: parsed.data.boardId, userId: socket.data.user.id, name: socket.data.user.name, status: 'offline', cardId: null });
+      }
+    });
+
+    socket.on('disconnecting', async () => {
+      for (const room of socket.rooms) {
+        const boardId = boardIdFromRoom(room);
+        if (!boardId) continue;
+        const sameUserSockets = (await io.in(room).fetchSockets()).filter((connection) => connection.data.user.id === socket.data.user.id && connection.id !== socket.id);
+        if (sameUserSockets.length === 0) io.to(room).emit('presence:update', { boardId, userId: socket.data.user.id, name: socket.data.user.name, status: 'offline', cardId: null });
       }
     });
   });

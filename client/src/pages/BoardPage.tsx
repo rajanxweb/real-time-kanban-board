@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router-dom';
 import { DndContext, KeyboardSensor, PointerSensor, closestCorners, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, arrayMove, horizontalListSortingStrategy, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { SocketProvider } from '../socket/SocketProvider';
+import { BoardPresence, SocketProvider } from '../socket/SocketProvider';
 import { ApiError, apiRequest } from '../api/client';
 
 type BoardCard = { id: string; title: string; description: string | null; position?: number };
@@ -156,6 +156,7 @@ export function BoardPage() {
       {boardQuery.isError && <BoardUnavailable error={boardQuery.error} retry={() => void boardQuery.refetch()} />}
       {boardQuery.isSuccess && <>
         <section className="flex flex-col items-stretch justify-between gap-4 border-b border-border py-5 sm:flex-row sm:items-end"><div><p className="font-mono text-[11px] uppercase tracking-[0.12em] text-ink">Workspace / board</p><h1 className="mt-2 font-heading text-2xl font-semibold tracking-tight">{boardQuery.data.title}</h1>{boardQuery.data.description && <p className="mt-1 text-[13px] text-muted">{boardQuery.data.description}</p>}</div>
+          <BoardPresence />
           <form className="flex gap-2" onSubmit={(event) => { event.preventDefault(); const title = newList.trim(); if (!title || !boardId) return; const tempId = `new-${Date.now()}`; const board = boardQuery.data; setNewList(''); runMutation((current) => ({ ...current, lists: [...current.lists, { id: tempId, title, cards: [] }] }), async () => { const result = await apiRequest<{ list: BoardList }>(`/boards/${encodeURIComponent(boardId)}/lists`, { method: 'POST', body: JSON.stringify({ title }) }); queryClient.setQueryData<Board>(key, (current) => current ? { ...current, lists: current.lists.map((list) => list.id === tempId ? result.list : list) } : board); }); }}><label className="sr-only" htmlFor="new-list">New list name</label><input autoFocus={boardQuery.data.lists.length === 0} className="min-w-0 flex-1 border border-border bg-surface px-2.5 py-1.5 text-[13px] sm:w-40 sm:flex-none" id="new-list" onChange={(event) => setNewList(event.target.value)} placeholder="List name" value={newList} /><button className={buttonClass} type="submit">Add list</button></form>
         </section>
         {boardQuery.data.lists.length === 0 && <section aria-label="Empty board" className="mt-5 rounded border border-dashed border-border px-6 py-6"><h2 className="font-heading text-base font-semibold">No lists on this board yet</h2><p className="mt-1 text-[13px] text-muted">Create a list to begin organizing tasks.</p></section>}

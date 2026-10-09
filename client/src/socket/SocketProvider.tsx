@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { io } from 'socket.io-client';
 import { z } from 'zod';
@@ -33,6 +33,10 @@ type Board = {
   lists: BoardList[];
 };
 
+type PresenceUser = { userId: string; name: string; email: string; activeCardId: string | null };
+type ConnectionStatus = 'connected' | 'reconnecting';
+const PresenceContext = createContext<{ users: PresenceUser[]; status: ConnectionStatus }>({ users: [], status: 'reconnecting' });
+
 const socketUrl = import.meta.env.VITE_SOCKET_URL ?? window.location.origin;
 const listSchema = z.object({ id: z.string(), title: z.string(), position: z.number().optional() }).passthrough();
 const cardSchema = z.object({ id: z.string(), listId: z.string(), title: z.string(), description: z.string().nullable().optional(), position: z.number().optional() }).passthrough();
@@ -43,6 +47,9 @@ const cardCreatedSchema = z.object({ boardId: z.string(), listId: z.string(), ca
 const cardUpdatedSchema = z.object({ boardId: z.string(), card: cardSchema });
 const cardMovedSchema = z.object({ boardId: z.string(), cardId: z.string(), sourceListId: z.string(), targetListId: z.string(), position: z.number(), updatedAt: z.string() });
 const cardDeletedSchema = z.object({ boardId: z.string(), listId: z.string(), cardId: z.string() });
+const presenceUserSchema = z.object({ userId: z.string(), name: z.string(), email: z.string(), activeCardId: z.string().nullable() });
+const joinAcknowledgmentSchema = z.object({ success: z.boolean(), boardId: z.string().optional(), activeUsers: z.array(presenceUserSchema).optional() });
+const presenceUpdateSchema = z.object({ boardId: z.string(), userId: z.string(), name: z.string(), status: z.enum(['online', 'offline']), cardId: z.string().nullable() });
 
 function sortedByPosition<T extends { position?: number }>(items: T[]): T[] {
   return [...items].sort((left, right) => (left.position ?? 0) - (right.position ?? 0));
@@ -54,13 +61,38 @@ function updateBoardCache(queryClient: ReturnType<typeof useQueryClient>, boardI
 
 export function SocketProvider({ boardId, enabled, children }: { boardId: string | undefined; enabled: boolean; children: ReactNode }) {
   const queryClient = useQueryClient();
+  const [users, setUsers] = useState<PresenceUser[]>([]);
+  const [status, setStatus] = useState<ConnectionStatus>('reconnecting');
 
   useEffect(() => {
     const token = readAuthToken();
     if (!enabled || !boardId || !token) return;
 
     const socket = io(socketUrl, { auth: { token }, autoConnect: false });
-    socket.on('connect', () => socket.emit('board:join', { boardId }));
+    let connectedBefore = false;
+    socket.on('connect', () => {
+      const isReconnect = connectedBefore;
+      connectedBefore = true;
+      setStatus('connected');
+      socket.emit('board:join', { boardId }, (response: unknown) => {
+        const parsed = joinAcknowledgmentSchema.safeParse(response);
+        if (parsed.success && parsed.data.success && parsed.data.boardId === boardId) setUsers(parsed.data.activeUsers ?? []);
+      });
+      if (isReconnect) void queryClient.refetchQueries({ queryKey: ['board', boardId], exact: true });
+    });
+    socket.on('disconnect', () => setStatus('reconnecting'));
+    socket.on('connect_error', () => setStatus('reconnecting'));
+    socket.on('presence:update', (payload: unknown) => {
+      const parsed = presenceUpdateSchema.safeParse(payload);
+      if (!parsed.success || parsed.data.boardId !== boardId) return;
+      setUsers((current) => {
+        if (parsed.data.status === 'offline') return current.filter((user) => user.userId !== parsed.data.userId);
+        const online = { userId: parsed.data.userId, name: parsed.data.name, email: '', activeCardId: parsed.data.cardId };
+        return current.some((user) => user.userId === online.userId)
+          ? current.map((user) => user.userId === online.userId ? { ...user, ...online, email: user.email } : user)
+          : [...current, online];
+      });
+    });
 
     socket.on('list:created', (payload: unknown) => {
       const parsed = listCreatedSchema.safeParse(payload);
@@ -154,8 +186,23 @@ export function SocketProvider({ boardId, enabled, children }: { boardId: string
     return () => {
       socket.emit('board:leave', { boardId });
       socket.disconnect();
+      setUsers([]);
+      setStatus('reconnecting');
     };
   }, [boardId, enabled, queryClient]);
 
-  return children;
+  return <PresenceContext.Provider value={{ users, status }}>{children}</PresenceContext.Provider>;
+}
+
+export function BoardPresence() {
+  const { users, status } = useContext(PresenceContext);
+  const names = users.map((user) => user.name).join(', ');
+  return <div className="flex items-center gap-3">
+    <div aria-label={`Online: ${names || 'no other collaborators'}`} className="flex -space-x-[5px]" title={names || 'No other collaborators online'}>
+      {users.map((user) => <span aria-label={`${user.name} is online`} className="relative inline-flex h-[22px] w-[22px] items-center justify-center rounded-full border border-ink/20 bg-surface font-mono text-[10px] font-bold text-ink" key={user.userId} role="img" title={user.name}>
+        {user.name.slice(0, 2).toUpperCase()}<span aria-hidden="true" className="absolute -bottom-px -right-px h-[5px] w-[5px] rounded-full border border-surface bg-success" />
+      </span>)}
+    </div>
+    <span aria-live="polite" className="flex items-center gap-1.5 font-mono text-[10px] text-muted" role="status"><span aria-hidden="true" className={`h-[5px] w-[5px] rounded-full ${status === 'connected' ? 'bg-success' : 'bg-muted'}`} />{status}</span>
+  </div>;
 }
