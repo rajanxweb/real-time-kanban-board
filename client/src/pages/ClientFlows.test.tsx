@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { ReactNode } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -12,6 +13,11 @@ vi.mock('../api/client', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api/client')>();
   return { ...actual, apiRequest: vi.fn() };
 });
+
+vi.mock('../socket/SocketProvider', () => ({
+  BoardPresence: () => null,
+  SocketProvider: ({ children }: { children: ReactNode }) => children,
+}));
 
 const requestMock = vi.mocked(apiRequest);
 
@@ -67,7 +73,7 @@ describe('client flows', () => {
     fireEvent.change(screen.getByLabelText('Card title'), { target: { value: 'Draft task' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add card' }));
 
-    expect(await screen.findByText('Draft task')).toBeInTheDocument();
+    expect(screen.getByText('Draft task')).toBeInTheDocument();
     await waitFor(() => expect(requestMock).toHaveBeenCalledWith(
       '/boards/board-1/lists/list-1/cards',
       expect.objectContaining({ method: 'POST' }),
