@@ -9,9 +9,11 @@ import { ApiError, apiRequest } from '../api/client';
 
 type BoardCard = { id: string; title: string; description: string | null; position?: number };
 type BoardList = { id: string; title: string; cards: BoardCard[]; position?: number };
-type Board = { id: string; title: string; description: string | null; lists: BoardList[] };
+type BoardMember = { id: string; userId: string; name: string; email: string; role: 'OWNER' | 'MEMBER' };
+type Board = { id: string; title: string; description: string | null; currentUserRole: 'OWNER' | 'MEMBER'; lists: BoardList[] };
 type Toast = { id: number; message: string };
 const boardKey = (id: string | undefined) => ['board', id];
+const membersKey = (id: string) => ['board', id, 'members'];
 const focusClass = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2';
 const inputClass = `w-full border border-border bg-surface px-2.5 py-1.5 text-[13px] ${focusClass}`;
 const buttonClass = `border border-border bg-surface px-3 py-1.5 text-[13px] hover:border-border-hover hover:bg-bg ${focusClass}`;
@@ -59,6 +61,59 @@ function BoardUnavailable({ error, retry }: { error: unknown; retry: () => void 
   return <section className="mt-8 border border-danger bg-surface px-5 py-5" role="alert"><h1 className="font-heading text-xl font-semibold">Unable to load board.</h1><p className="mt-2 text-[13px] text-muted">Check your connection and try again.</p><button className={`${buttonClass} mt-5`} onClick={retry} type="button">Retry</button></section>;
 }
 
+function requestErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof ApiError) return error.message;
+  if (error instanceof TypeError) return 'Unable to reach the server. Check your connection and try again.';
+  return fallback;
+}
+
+function BoardMembersPanel({ boardId, isOwner, onClose }: { boardId: string; isOwner: boolean; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [email, setEmail] = useState('');
+  const memberQueryKey = membersKey(boardId);
+  const membersQuery = useQuery({
+    queryKey: memberQueryKey,
+    queryFn: async () => (await apiRequest<{ members: BoardMember[] }>(`/boards/${encodeURIComponent(boardId)}/members`)).members,
+  });
+  const invite = useMutation({
+    mutationFn: (inviteEmail: string) => apiRequest<{ member: BoardMember }>(`/boards/${encodeURIComponent(boardId)}/members`, { method: 'POST', body: JSON.stringify({ email: inviteEmail }) }),
+    onSuccess: ({ member }) => {
+      queryClient.setQueryData<BoardMember[]>(memberQueryKey, (members) => members ? [...members, member] : [member]);
+      setEmail('');
+      void queryClient.invalidateQueries({ queryKey: memberQueryKey });
+    },
+  });
+  const remove = useMutation({
+    mutationFn: (userId: string) => apiRequest(`/boards/${encodeURIComponent(boardId)}/members/${encodeURIComponent(userId)}`, { method: 'DELETE' }),
+    onSuccess: (_result, userId) => {
+      queryClient.setQueryData<BoardMember[]>(memberQueryKey, (members) => members?.filter((member) => member.userId !== userId));
+      void queryClient.invalidateQueries({ queryKey: memberQueryKey });
+    },
+  });
+
+  return <section aria-label="Board members" className="mt-4 border border-border bg-surface px-4 py-4" id="board-members">
+    <div className="flex items-center justify-between border-b border-border pb-3">
+      <div><h2 className="font-heading text-base font-semibold">Members</h2><p className="mt-1 text-[12px] text-muted">People who can access this board.</p></div>
+      <button aria-label="Close members panel" className={`${buttonClass} px-2`} onClick={onClose} type="button">Close</button>
+    </div>
+    {isOwner && <form className="flex flex-col gap-2 border-b border-border py-3 sm:flex-row" onSubmit={(event) => { event.preventDefault(); const inviteEmail = email.trim(); if (inviteEmail) invite.mutate(inviteEmail); }}>
+      <div className="min-w-0 flex-1"><label className="mb-1 block text-[12px] text-muted" htmlFor="member-email">Invite by email</label><input autoComplete="email" className={inputClass} disabled={invite.isPending} id="member-email" onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" required type="email" value={email} /></div>
+      <button className={`${buttonClass} self-end`} disabled={invite.isPending} type="submit">{invite.isPending ? 'Inviting...' : 'Invite member'}</button>
+    </form>}
+    {invite.isError && <p className="mt-3 border border-danger bg-surface px-3 py-2 text-[13px] text-danger" role="alert">{requestErrorMessage(invite.error, 'Unable to invite this member. Check your connection and try again.')}</p>}
+    {membersQuery.isPending && <p className="py-4 font-mono text-[11px] text-muted" role="status">Loading members...</p>}
+    {membersQuery.isError && <div className="py-4" role="alert"><p className="text-[13px] text-danger">{requestErrorMessage(membersQuery.error, 'Unable to load board members. Check your connection and try again.')}</p><button className={`${buttonClass} mt-3`} onClick={() => void membersQuery.refetch()} type="button">Retry</button></div>}
+    {membersQuery.isSuccess && membersQuery.data.length === 0 && <p className="py-4 text-[13px] text-muted">No members on this board yet.</p>}
+    {membersQuery.isSuccess && membersQuery.data.length > 0 && <ul className="divide-y divide-border">
+      {membersQuery.data.map((member) => <li className="flex items-center justify-between gap-3 py-3" key={member.id}>
+        <div className="min-w-0"><p className="truncate text-[13px] font-medium">{member.name}</p><p className="truncate text-[12px] text-muted">{member.email}</p></div>
+        <div className="flex shrink-0 items-center gap-3"><span className="font-mono text-[11px] text-muted">{member.role === 'OWNER' ? 'Owner' : 'Member'}</span>{isOwner && member.role !== 'OWNER' && <button aria-label={`Remove ${member.name}`} className={`${buttonClass} border-danger px-2 text-danger`} disabled={remove.isPending && remove.variables === member.userId} onClick={() => remove.mutate(member.userId)} type="button">{remove.isPending && remove.variables === member.userId ? 'Removing...' : 'Remove'}</button>}</div>
+      </li>)}
+    </ul>}
+    {remove.isError && <p className="mt-2 border border-danger bg-surface px-3 py-2 text-[13px] text-danger" role="alert">{requestErrorMessage(remove.error, 'Unable to remove this member. Check your connection and try again.')}</p>}
+  </section>;
+}
+
 function CardDialog({ card, onClose, onSave, onDelete, error, busy }: { card: BoardCard; onClose: () => void; onSave: (title: string, description: string) => void; onDelete: () => void; error: string | null; busy: boolean }) {
   const dialog = useRef<HTMLDivElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
@@ -104,6 +159,7 @@ export function BoardPage() {
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [cardTitle, setCardTitle] = useState('');
+  const [membersOpen, setMembersOpen] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
@@ -156,9 +212,10 @@ export function BoardPage() {
       {boardQuery.isError && <BoardUnavailable error={boardQuery.error} retry={() => void boardQuery.refetch()} />}
       {boardQuery.isSuccess && <>
         <section className="flex flex-col items-stretch justify-between gap-4 border-b border-border py-5 sm:flex-row sm:items-end"><div><p className="font-mono text-[11px] uppercase tracking-[0.12em] text-ink">Workspace / board</p><h1 className="mt-2 font-heading text-2xl font-semibold tracking-tight">{boardQuery.data.title}</h1>{boardQuery.data.description && <p className="mt-1 text-[13px] text-muted">{boardQuery.data.description}</p>}</div>
-          <BoardPresence />
-          <form className="flex gap-2" onSubmit={(event) => { event.preventDefault(); const title = newList.trim(); if (!title || !boardId) return; const tempId = `new-${Date.now()}`; const board = boardQuery.data; setNewList(''); runMutation((current) => ({ ...current, lists: [...current.lists, { id: tempId, title, cards: [] }] }), async () => { const result = await apiRequest<{ list: BoardList }>(`/boards/${encodeURIComponent(boardId)}/lists`, { method: 'POST', body: JSON.stringify({ title }) }); queryClient.setQueryData<Board>(key, (current) => current ? { ...current, lists: current.lists.map((list) => list.id === tempId ? result.list : list) } : board); }); }}><label className="sr-only" htmlFor="new-list">New list name</label><input autoFocus={boardQuery.data.lists.length === 0} className="min-w-0 flex-1 border border-border bg-surface px-2.5 py-1.5 text-[13px] sm:w-40 sm:flex-none" id="new-list" onChange={(event) => setNewList(event.target.value)} placeholder="List name" value={newList} /><button className={buttonClass} type="submit">Add list</button></form>
+          <div className="flex flex-wrap items-center gap-2"><BoardPresence /><button aria-controls="board-members" aria-expanded={membersOpen} className={buttonClass} onClick={() => setMembersOpen((open) => !open)} type="button">Members</button>
+          <form className="flex gap-2" onSubmit={(event) => { event.preventDefault(); const title = newList.trim(); if (!title || !boardId) return; const tempId = `new-${Date.now()}`; const board = boardQuery.data; setNewList(''); runMutation((current) => ({ ...current, lists: [...current.lists, { id: tempId, title, cards: [] }] }), async () => { const result = await apiRequest<{ list: BoardList }>(`/boards/${encodeURIComponent(boardId)}/lists`, { method: 'POST', body: JSON.stringify({ title }) }); queryClient.setQueryData<Board>(key, (current) => current ? { ...current, lists: current.lists.map((list) => list.id === tempId ? result.list : list) } : board); }); }}><label className="sr-only" htmlFor="new-list">New list name</label><input autoFocus={boardQuery.data.lists.length === 0} className="min-w-0 flex-1 border border-border bg-surface px-2.5 py-1.5 text-[13px] sm:w-40 sm:flex-none" id="new-list" onChange={(event) => setNewList(event.target.value)} placeholder="List name" value={newList} /><button className={buttonClass} type="submit">Add list</button></form></div>
         </section>
+        {membersOpen && boardId && <BoardMembersPanel boardId={boardId} isOwner={boardQuery.data.currentUserRole === 'OWNER'} onClose={() => setMembersOpen(false)} />}
         {boardQuery.data.lists.length === 0 && <section aria-label="Empty board" className="mt-5 rounded border border-dashed border-border px-6 py-6"><h2 className="font-heading text-base font-semibold">No lists on this board yet</h2><p className="mt-1 text-[13px] text-muted">Create a list to begin organizing tasks.</p></section>}
         {boardQuery.data.lists.length > 0 && <DndContext collisionDetection={closestCorners} sensors={sensors} onDragStart={(event) => setDraggingId(event.active.id.toString())} onDragCancel={() => setDraggingId(null)} onDragEnd={(event) => void finishDrag(event)}>
         <SortableContext items={boardQuery.data.lists.map((list) => `list:${list.id}`)} strategy={horizontalListSortingStrategy}>
