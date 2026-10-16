@@ -596,3 +596,19 @@
 ### Key Terms
 - **Optimistic UI**: Showing a requested change immediately while the server is still processing it.
 - **Test isolation**: Replacing an external connection with a predictable stub while testing one UI flow.
+
+## Task: Rewrite project README for hiring managers
+
+### What Was Built
+- Replaced the short startup-only README with a project overview covering features, technologies, architecture, real-time sync, security, Docker and manual setup, environment variables, project structure, and key design decisions.
+- Added explicit placeholders for a live demo URL and a product demo GIF.
+
+### Why This Approach
+- The README describes implemented behavior and configuration using the project files and deployment docs, so readers can understand the system and start it without implying features or deployment values that are not provided.
+- A Mermaid diagram and a short sync explanation show how browser requests, server persistence, and board-room events fit together.
+- The environment table distinguishes required server settings from local defaults and optional client build settings.
+
+### Key Terms
+- **Board room**: A Socket.IO group scoped to one board so its members receive that board's events.
+- **Direct database URL**: A PostgreSQL connection Prisma uses for schema migrations rather than regular application queries.
+- **Optimistic update**: A client-side change shown before the API confirms it, with rollback if the request fails.
