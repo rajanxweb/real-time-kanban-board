@@ -10,10 +10,6 @@ Demo login: [demo@123gmail.com] / [Demo@123]
 
 The backend runs on a free tier and may take up to a minute to wake on the first request.
 
-## Why I built it
-
-<!-- TODO: 2-3 sentences in my own words on why I built this -->
-
 ## Features
 
 - Register and sign in.
