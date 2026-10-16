@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { AuthContextValue } from '../auth/useAuth';
 import { AuthContext } from '../auth/useAuth';
-import { apiRequest } from '../api/client';
+import { ApiError, apiRequest } from '../api/client';
 import { AuthPages } from './AuthPages';
 import { BoardPage } from './BoardPage';
 
@@ -87,5 +87,64 @@ describe('client flows', () => {
 
     expect(await screen.findByText('No lists on this board yet')).toBeInTheDocument();
     expect(screen.getByText('Create a list to begin organizing tasks.')).toBeInTheDocument();
+  });
+
+  it('lets the board owner invite and remove members', async () => {
+    requestMock.mockImplementation(async (path, init) => {
+      if (path === '/boards/board-1') {
+        return { board: { id: 'board-1', title: 'Board', description: null, currentUserRole: 'OWNER', lists: [] } } as never;
+      }
+      if (path === '/boards/board-1/members' && init?.method === 'POST') {
+        return { member: { id: 'member-3', userId: 'user-3', name: 'Casey Jones', email: 'casey@example.com', role: 'MEMBER' } } as never;
+      }
+      if (path === '/boards/board-1/members') {
+        return { members: [
+          { id: 'member-1', userId: 'user-1', name: 'Alice Cooper', email: 'alice@example.com', role: 'OWNER' },
+          { id: 'member-2', userId: 'user-2', name: 'Bob Vance', email: 'bob@example.com', role: 'MEMBER' },
+        ] } as never;
+      }
+      return { message: 'Member removed successfully' } as never;
+    });
+
+    renderBoard();
+    fireEvent.click(await screen.findByRole('button', { name: 'Members' }));
+
+    expect(await screen.findByText('Alice Cooper')).toBeInTheDocument();
+    expect(screen.getByText('Owner')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Remove Alice Cooper' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Remove Bob Vance' })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Invite by email'), { target: { value: 'casey@example.com' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Invite member' }));
+
+    expect(await screen.findByText('Casey Jones')).toBeInTheDocument();
+    await waitFor(() => expect(requestMock).toHaveBeenCalledWith(
+      '/boards/board-1/members',
+      expect.objectContaining({ method: 'POST', body: JSON.stringify({ email: 'casey@example.com' }) }),
+    ));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Bob Vance' }));
+    await waitFor(() => expect(requestMock).toHaveBeenCalledWith(
+      '/boards/board-1/members/user-2',
+      expect.objectContaining({ method: 'DELETE' }),
+    ));
+  });
+
+  it('shows the API error when an invite email has no matching user', async () => {
+    requestMock.mockImplementation(async (path, init) => {
+      if (path === '/boards/board-1') {
+        return { board: { id: 'board-1', title: 'Board', description: null, currentUserRole: 'OWNER', lists: [] } } as never;
+      }
+      if (path === '/boards/board-1/members' && init?.method === 'POST') {
+        throw new ApiError('No user found with this email', 400, 'USER_NOT_FOUND');
+      }
+      return { members: [] } as never;
+    });
+
+    renderBoard();
+    fireEvent.click(await screen.findByRole('button', { name: 'Members' }));
+    fireEvent.change(await screen.findByLabelText('Invite by email'), { target: { value: 'unknown@example.com' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Invite member' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('No user found with this email');
   });
 });
