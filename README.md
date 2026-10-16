@@ -1,84 +1,111 @@
 # Real-Time Collaborative Kanban Board
 
-A full-stack Kanban board where teams organize work into lists and cards and see board changes and online presence update live.
+A web application for organizing board work into lists and cards, with board updates and member presence shared in real time.
 
-**Live demo:** [Open the live demo](https://your-live-demo-url.example)
+## Live demo
 
-![Product demo GIF placeholder — replace with a recording](docs/assets/board-demo.gif)
+[Open the live demo](https://real-time-kanban-board-alpha.vercel.app)
+
+Demo login: [demo@123gmail.com] / [Demo@123]
+
+The backend runs on a free tier and may take up to a minute to wake on the first request.
+
+## Why I built it
+
+<!-- TODO: 2-3 sentences in my own words on why I built this -->
 
 ## Features
 
-- Register and sign in, then create and manage boards.
-- Create, rename, reorder, and delete lists; create, edit, move, and delete cards.
-- Drag cards between lists and reorder lists with pointer or keyboard controls.
-- See other board members' online presence and receive board changes in real time.
-- Apply optimistic changes in the interface; roll back rejected changes and reload board data after reconnecting.
-- Get loading, empty, and error states on the board and dashboard.
+- Register and sign in.
+- Create boards and manage board members with owner and member roles.
+- Create, rename, and delete lists; create, edit, move, and delete cards.
+- Drag and drop cards to reorder them or move them between lists.
+- Receive board changes and online presence updates through Socket.IO.
+- Rejoin the board room and reload the board after a socket reconnects.
 
-## Tech stack
+## Screenshots
 
-- **Client:** React, TypeScript, Vite, Tailwind CSS, TanStack Query, dnd-kit
-- **Server:** Node.js, Express, TypeScript, Socket.IO, Zod
-- **Data:** PostgreSQL, Prisma ORM
-- **Tests:** Vitest, React Testing Library, Supertest
-- **Containers:** Docker Compose, with PostgreSQL, the API, and the static client
+| Sign in | Boards dashboard |
+| --- | --- |
+| ![Sign-in page](docs/screenshots/login.png) | ![Boards dashboard](docs/screenshots/dashboard.png) |
 
-## Architecture
-
-```mermaid
-flowchart LR
-    Browser["Browser: React client"]
-    Api["Express REST API"]
-    Socket["Socket.IO server"]
-    Services["Controllers and services"]
-    Prisma["Prisma"]
-    Database[("PostgreSQL")]
-
-    Browser -->|"HTTP requests"| Api
-    Browser <-->|"Authenticated socket events"| Socket
-    Api --> Services
-    Services -->|"Read and write"| Prisma
-    Prisma <-->|"Queries"| Database
-    Services -->|"After a successful mutation"| Socket
-    Socket -->|"Events for authorized board rooms"| Browser
-```
-
-The client loads board data and submits changes through the REST API. Socket.IO handles board-room updates and presence. Both paths use the same server and PostgreSQL database.
+| Board | Board members |
+| --- | --- |
+| ![Kanban board](docs/screenshots/board.png) | ![Board members panel](docs/screenshots/members.png) |
 
 ## How real-time sync works
 
-The client connects to Socket.IO with its JWT and requests to join a board room; the server checks current board membership before joining. A board change is validated and saved through the REST API before the server broadcasts an event to that board's room. Other clients apply the event to their cached board state. The acting client updates optimistically and rolls back if the request fails; after reconnecting, it fetches the board again to reconcile its state.
+The client loads and changes board data through the REST API. After a successful change is saved to PostgreSQL, the server publishes a Socket.IO event to the board room; other clients update their board state from that event. The client authenticates its socket connection and must be a current board member to join; after reconnecting, it rejoins and fetches the board again.
 
-## Security highlights
+```mermaid
+flowchart LR
+    Client["Browser client"]
+    REST["REST API"]
+    Socket["Socket.IO"]
+    PostgreSQL[("PostgreSQL")]
 
-- JWT authentication protects API routes and is checked during the Socket.IO connection handshake.
-- Zod validates request bodies, path parameters, and socket payloads.
-- Board membership and owner permissions are checked on protected operations; room membership is rechecked before broadcasting.
-- Passwords are stored as hashes. Authentication routes are rate-limited.
-- Helmet sets HTTP security headers, CORS is limited to the configured client origin, and JSON request bodies are limited to 1 MB.
-- Secrets are supplied through environment variables. Do not use the Docker Compose default credentials outside local development.
+    Client -->|"Read or change board"| REST
+    REST <-->|"Persist and load data"| PostgreSQL
+    REST -->|"After a successful change"| Socket
+    Socket -->|"Board-room events"| Client
+```
 
-## Run with Docker
+## Tech stack
 
-Install Docker with the Compose plugin, then run from the repository root:
+The following choices and rationales are recorded in [docs/DECISIONS.md](docs/DECISIONS.md).
+
+| Technology | Reason for this choice |
+| --- | --- |
+| Socket.IO | Board rooms scope broadcasts, and reconnection support handles interrupted connections. |
+| PostgreSQL | Relational constraints and transactions fit the board, membership, list, and card data model. |
+| Prisma | The schema generates TypeScript types, and Prisma Migrate manages versioned schema changes. |
+| JSON Web Tokens (JWT) | A signed token authenticates both REST and Socket.IO without a separate server-side session store. |
+
+## Design decisions
+
+### Fractional card ordering
+
+Cards use numeric positions, with a midpoint position for an insertion between two existing cards. If there is no usable gap, the server rebalances positions before choosing one.
+
+### Last-write-wins, with the server as authority
+
+The server persists accepted changes to PostgreSQL and broadcasts the resulting state to board members. The client applies optimistic updates, rolls them back when a request fails, and reloads the board after reconnecting.
+
+### Socket authorization
+
+The socket handshake verifies the user's token, and joining a board room requires current membership. Leaving is limited to a room the socket has joined, and the server rechecks room members before broadcasting.
+
+## Security
+
+- Helmet sets standard HTTP security headers.
+- REST and Socket.IO CORS accept the configured `CLIENT_ORIGIN`.
+- JSON request bodies are limited to 1 MB; malformed and oversized bodies receive errors.
+- Registration and login are limited to 20 requests per IP in a 15-minute window.
+- Protected REST routes and socket handshakes require a valid JWT; the server reloads the user from the database when verifying the token.
+- Zod validates REST path parameters and request bodies, as well as socket join and leave payloads.
+- Board membership is required for board access, and owner-only changes check the owner role.
+- Before publishing to a board room, the server rechecks members and removes sockets whose membership has ended.
+- `JWT_SECRET` and database connection strings are read from environment variables.
+
+## Run locally
+
+### Docker Compose
+
+With Docker Compose installed, run this from the repository root:
 
 ```sh
 docker compose up --build
 ```
 
-Open <http://localhost:8080>. The API and Socket.IO server are published at <http://localhost:5001>. Compose starts PostgreSQL, applies Prisma migrations, and serves the client after the API is healthy. PostgreSQL is available to the other Compose services, not published on a host port.
+Open the client at <http://localhost:8080>. The API and Socket.IO server are available at <http://localhost:5001>. Compose starts PostgreSQL, applies Prisma migrations when the server starts, and waits for healthy services before starting the client. Stop the services with `docker compose down`.
 
-For local testing, Compose defaults to `postgres` credentials and generates a temporary JWT secret if `JWT_SECRET` is unset. Set `POSTGRES_PASSWORD` and `JWT_SECRET` before using the stack in a shared environment. `CLIENT_PORT` and `SERVER_PORT` change the host ports. Stop the services with `docker compose down`; the database volume remains in place.
+### Manual setup
 
-## Run manually
-
-Use Node.js 22 and a running PostgreSQL database. In PowerShell, copy the server environment template and edit its database connection values and JWT secret:
+Use Node.js 22 and a running PostgreSQL database. Copy the server environment template, then edit `server/.env` with valid database URLs, a JWT secret, and `CLIENT_ORIGIN` set to `http://localhost:5173`:
 
 ```powershell
 Copy-Item server\.env.example server\.env
 ```
-
-Set `CLIENT_ORIGIN` to `http://localhost:5173`. Set `DATABASE_URL` to the application database connection and `DIRECT_URL` to a direct connection Prisma can use for migrations. Keep both values private.
 
 In one terminal, install the server dependencies, apply migrations, and start the API:
 
@@ -89,7 +116,7 @@ npm run migrate
 npm run dev
 ```
 
-In a second terminal, start the Vite client:
+In another terminal, install and start the client:
 
 ```powershell
 Set-Location client
@@ -97,41 +124,60 @@ npm ci
 npm run dev
 ```
 
-Open <http://localhost:5173>. Vite proxies API and Socket.IO traffic to `http://localhost:5000` during development.
+Open <http://localhost:5173>. Vite proxies API and Socket.IO traffic to `http://localhost:5000`.
 
-## Environment variables
+### Environment variables
 
-| Variable | Used by | Required or default | Purpose |
-| --- | --- | --- | --- |
-| `DATABASE_URL` | Server, Prisma | Required | PostgreSQL connection used by the application. |
-| `DIRECT_URL` | Prisma CLI | Required for migrations | Direct PostgreSQL connection used by Prisma migrations. |
-| `JWT_SECRET` | Server | Required; Docker can generate a temporary local value | Signs and verifies access tokens. |
-| `CLIENT_ORIGIN` | Server | Required | Exact browser origin allowed by HTTP and Socket.IO CORS. |
-| `PORT` | Server | `5000` | Port the API and Socket.IO server listens on. |
-| `TRUST_PROXY_HOPS` | Server | `0` | Number of trusted reverse-proxy hops. Set to match the hosting environment. |
-| `POSTGRES_USER` | Docker Compose | `postgres` | Local PostgreSQL user. |
-| `POSTGRES_PASSWORD` | Docker Compose | `postgres` | Local PostgreSQL password; replace outside local development. |
-| `POSTGRES_DB` | Docker Compose | `kanban` | Local PostgreSQL database name. |
-| `SERVER_PORT` | Docker Compose | `5001` | Host port published for the API and Socket.IO server. |
-| `CLIENT_PORT` | Docker Compose | `8080` | Host port published for the client. |
-| `VITE_API_BASE_URL` | Client build | `/api/v1` in development | Base URL for REST requests. |
-| `VITE_SOCKET_URL` | Client build | Current page origin | Socket.IO server URL. |
+| Server variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` | PostgreSQL connection used by the application. |
+| `DIRECT_URL` | Direct PostgreSQL connection used by Prisma migrations. |
+| `JWT_SECRET` | Secret used to sign and verify access tokens. |
+| `CLIENT_ORIGIN` | Browser origin allowed by REST and Socket.IO CORS. |
+| `PORT` | Port used by the server. |
+| `TRUST_PROXY_HOPS` | Number of trusted reverse-proxy hops. |
+
+| Client variable | Purpose |
+| --- | --- |
+| `VITE_API_BASE_URL` | Base URL for REST requests. |
+| `VITE_SOCKET_URL` | Socket.IO server URL. |
+
+The client variables are optional for local development: the client defaults to `/api/v1` for REST, and to the current page origin for Socket.IO.
+
+For Docker Compose, set `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB` in a root `.env` file to configure PostgreSQL. By default, Compose publishes the API on port 5001 and the client on port 8080.
 
 ## Project structure
 
 ```text
 client/
-  src/                 React app, API client, auth, board pages, socket provider
-  Dockerfile           Client build and Nginx runtime image
+  public/               Static assets
+  src/                  React app, API client, auth, board pages, socket provider
+  Dockerfile
 server/
-  src/                 Express app, routes, controllers, services, socket server
-  prisma/              Database schema, migrations, and seed
-  tests/               API and real-time integration tests
-  Dockerfile           Server build and runtime image
-docs/                  Architecture, API, security, deployment, and test docs
-docker-compose.yml     Local PostgreSQL, server, and client services
+  src/                  Express app, routes, controllers, services, socket server
+  prisma/               PostgreSQL schema, migrations, and seed
+  tests/                API and Socket.IO integration tests
+  Dockerfile
+docs/
+  screenshots/          Board, dashboard, login, and members PNGs
+  *.md                  Architecture, security, deployment, and project docs
+.github/workflows/ci.yml
+docker-compose.yml
 ```
 
-## Key design decisions
+## Tests and CI
 
-The project uses REST for authenticated reads and mutations, then broadcasts successful changes over Socket.IO to authorized board rooms. PostgreSQL and Prisma store the canonical state; fractional positions support list and card ordering without rewriting every item for each move. JWTs avoid a separate session store, while server-side membership checks control board access. See [docs/DECISIONS.md](docs/DECISIONS.md) for the trade-offs and rationale.
+Client tests cover invalid login input, card creation from the inline composer, the empty-board state, owner member management, and an invite for an unknown email. Server integration tests cover registration, duplicate registration, login, unauthenticated access, board membership and owner-only deletion, ordered card moves, and Socket.IO card-move delivery to a member while denying a non-member room join.
+
+The [CI workflow](.github/workflows/ci.yml) runs on pushes and pull requests targeting `main`. It installs dependencies, runs client and server linting, typechecks and tests, builds both packages, and builds both Docker images.
+
+[![CI](https://github.com/rajanxweb/real-time-kanban-board/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/rajanxweb/real-time-kanban-board/actions/workflows/ci.yml)
+
+## Known limitations
+
+- The deployed backend runs on a free tier and may take up to a minute to wake on the first request.
+- Concurrent edits use last-write-wins behavior; the app does not merge simultaneous text edits character by character.
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE).

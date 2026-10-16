@@ -612,3 +612,57 @@
 - **Board room**: A Socket.IO group scoped to one board so its members receive that board's events.
 - **Direct database URL**: A PostgreSQL connection Prisma uses for schema migrations rather than regular application queries.
 - **Optimistic update**: A client-side change shown before the API confirms it, with rollback if the request fails.
+
+## Task: Add Board Members Panel
+
+### What Was Built
+- Added a Members button to the board header that opens a member list with names, email addresses, and roles.
+- Added owner-only invite-by-email and remove-member actions, including loading, empty, retryable list errors, and API error messages.
+- Added client-flow coverage for owner actions and the unknown-email API response.
+
+### Why This Approach
+- The board detail response's `currentUserRole` controls owner-only UI, while the dedicated members endpoint supplies the member list.
+- The list is fetched when the panel opens, and successful changes refresh the cached list through TanStack Query.
+- Server-provided messages make cases such as an email with no matching user clear without duplicating backend validation.
+
+### Key Terms
+- **Board member**: A user with either the owner or member role on a board.
+- **Lazy query**: A request started when a user opens the part of the interface that needs the data.
+- **Mutation invalidation**: Marking cached query data stale after a successful write so it can be refreshed from the server.
+
+## Task: Verify Portfolio Screenshots
+
+### What Was Built
+- Confirmed all four portfolio screenshots are within the 1600px width and 400 KB limits, so no image changes were needed.
+
+### Why This Approach
+- Leaving compliant PNGs untouched preserves their visual quality and avoids unnecessary image processing.
+
+### Key Terms
+- **Aspect ratio**: The proportional relationship between an image's width and height.
+- **Lossless compression**: Reducing image file size without discarding image information.
+
+## Task: Add Client Environment Example
+
+### What Was Built
+- Added the client API base URL and Socket.IO URL development values to `client/.env.example`.
+- Verified the example file is not ignored and no real `.env` file is tracked.
+
+### Why This Approach
+- The example documents the client’s existing optional Vite settings without adding dependencies or exposing secrets.
+
+### Key Terms
+- **Environment variable**: A setting supplied to a process outside its source code.
+- **Ignore rule**: A Git pattern that excludes matching untracked files from version control.
+
+## Task: Update Portfolio README
+
+### What Was Built
+- Updated the existing screenshots, demo login, environment, Compose, and project structure documentation to match the repository.
+
+### Why This Approach
+- Targeted edits keep the README’s accurate project description while removing references to missing images and stale configuration details.
+
+### Key Terms
+- **Relative path**: A file location expressed from the current document’s directory.
+- **CI workflow**: An automated GitHub Actions process that validates changes to the project.

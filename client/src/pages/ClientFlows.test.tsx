@@ -90,18 +90,21 @@ describe('client flows', () => {
   });
 
   it('lets the board owner invite and remove members', async () => {
+    let invited = false;
     requestMock.mockImplementation(async (path, init) => {
       if (path === '/boards/board-1') {
         return { board: { id: 'board-1', title: 'Board', description: null, currentUserRole: 'OWNER', lists: [] } } as never;
       }
       if (path === '/boards/board-1/members' && init?.method === 'POST') {
+        invited = true;
         return { member: { id: 'member-3', userId: 'user-3', name: 'Casey Jones', email: 'casey@example.com', role: 'MEMBER' } } as never;
       }
       if (path === '/boards/board-1/members') {
-        return { members: [
+        const members = [
           { id: 'member-1', userId: 'user-1', name: 'Alice Cooper', email: 'alice@example.com', role: 'OWNER' },
           { id: 'member-2', userId: 'user-2', name: 'Bob Vance', email: 'bob@example.com', role: 'MEMBER' },
-        ] } as never;
+        ];
+        return { members: invited ? [...members, { id: 'member-3', userId: 'user-3', name: 'Casey Jones', email: 'casey@example.com', role: 'MEMBER' }] : members } as never;
       }
       return { message: 'Member removed successfully' } as never;
     });
